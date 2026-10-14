@@ -77,6 +77,33 @@ def hard_words(text: str) -> tuple[list[str], float]:
     return unique, (len(hard) / len(words) if words else 0.0)
 
 
+def dialogue_share(text: str) -> float:
+    """Share of words inside quotation marks - how much the characters talk."""
+    words = len(re.findall(r"[A-Za-z']+", text))
+    quoted = sum(len(re.findall(r"[A-Za-z']+", q))
+                 for q in re.findall(r'["\u201c]([^"\u201c\u201d]+)["\u201d]', text))
+    return quoted / words if words else 0.0
+
+
+def readability_problems(brief: Brief, story: Story) -> list[str]:
+    """Is the story simple enough for this age? Hard words, long sentences, too little talking."""
+    problems = []
+    text, tier, age = story.text, brief.tier, brief.listener.age
+    hard, share = hard_words(text)
+    if share > tier.max_hard_words:
+        problems.append(f"The words are too hard for a {age}-year-old. Swap these for short, "
+                        f"everyday words: {', '.join(hard[:12])}.")
+    lengths = sentence_lengths(text)
+    if lengths and sum(lengths) / len(lengths) > tier.max_avg_sentence:
+        problems.append(f"Sentences average {sum(lengths) / len(lengths):.0f} words; keep them under "
+                        f"{tier.max_avg_sentence} for a {age}-year-old.")
+    talk = dialogue_share(text)
+    if talk < tier.min_dialogue:
+        problems.append(f"The characters hardly talk ({talk:.0%} of the words). Add short, child-like "
+                        f"talking so it is at least {tier.min_dialogue:.0%}, e.g. \"Mumma, look! What is that?\"")
+    return problems
+
+
 def keyword_hits(text: str, tier: AgeTier) -> list[str]:
     """Banned words for this age tier, matched on whole words only."""
     hits = []
@@ -143,15 +170,5 @@ def code_checks(brief: Brief, story: Story) -> tuple[list[str], list[str]]:
         issues.append(f"Replace these tired, machine-sounding phrases with simple, specific words: "
                       f"{', '.join(found)}.")
 
-    hard, share = hard_words(text)
-    if share > brief.tier.max_hard_words:
-        issues.append(f"The words are too hard for a {brief.listener.age}-year-old. Swap these for "
-                      f"short, everyday words: {', '.join(hard[:10])}.")
-
-    lengths = sentence_lengths(text)
-    if lengths:
-        avg = sum(lengths) / len(lengths)
-        if avg > brief.tier.max_avg_sentence:
-            issues.append(f"Sentences average {avg:.0f} words; keep them under "
-                          f"{brief.tier.max_avg_sentence} for a {brief.listener.age}-year-old.")
+    issues += readability_problems(brief, story)
     return safety, issues

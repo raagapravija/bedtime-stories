@@ -23,7 +23,8 @@ def listener(**kw):
 def good_llm(**over):
     defaults = dict(classify=brief_json(), plan=plan_json(), write=make_story(),
                     revise=make_story(), judge=judge_json(),
-                    expand=make_story(pages=6, words_per_page=120))
+                    expand=make_story(pages=6, words_per_page=120),
+                    simplify=make_story())
     defaults.update(over)
     return FakeLLM(**defaults)
 
@@ -366,7 +367,7 @@ def test_web_request_validation():
 # ------------------------------------------------------------------ voice ---
 def test_machine_sounding_phrases_are_caught_in_code():
     brief = Brief(listener=listener(), genre=GENRES["friendship"], story_request="x")
-    story = parse_story(make_story().replace("tiptoed.", "embarked on a magical adventure.", 1))
+    story = parse_story(make_story().replace("purred.", "embarked on a magical adventure.", 1))
     _, issues = code_checks(brief, story)
     assert any("embark" in i and "magical adventure" in i for i in issues)
 
@@ -374,7 +375,7 @@ def test_machine_sounding_phrases_are_caught_in_code():
 def test_writer_gets_a_voice_sample_for_the_right_age():
     llm = good_llm()
     create_story(listener(age=5), Request("calming", ""), llm=llm)
-    assert "stripy socks" in llm.prompts_for("write")[0]            # little-ones sample
+    assert "Mumma, look! What is that?" in llm.prompts_for("write")[0]   # simple, chatty sample
     llm = good_llm()
     create_story(listener(age=9), Request("calming", ""), llm=llm)
     assert "Puddle Lane" in llm.prompts_for("write")[0]             # older sample
@@ -417,12 +418,12 @@ def test_hard_words_are_found_but_names_and_kid_words_are_not():
 def test_too_many_hard_words_send_the_story_back_for_age_5():
     brief = Brief(listener=listener(age=5), genre=GENRES["calming"], story_request="x")
     fancy = make_story(pages=4, words_per_page=100).replace(
-        "tiptoed.", "tiptoed through the tranquil, luminous meadow.")
+        "purred.", "purred in the tranquil, luminous meadow.")
     _, issues = code_checks(brief, parse_story(fancy))
     assert any("too hard for a 5-year-old" in i and "tranquil" in i for i in issues)
     # the same words are fine in moderation for a 10-year-old
     older = Brief(listener=listener(age=10), genre=GENRES["calming"], story_request="x")
-    one = make_story(pages=6, words_per_page=130).replace("tiptoed.", "tiptoed through the tranquil meadow.", 1)
+    one = make_story(pages=6, words_per_page=130).replace("purred.", "purred in the tranquil meadow.", 1)
     _, issues = code_checks(older, parse_story(one))
     assert not any("too hard" in i for i in issues)
 
@@ -431,4 +432,32 @@ def test_writer_gets_age_specific_vocabulary_rules():
     llm = good_llm()
     create_story(listener(age=5), Request("calming", ""), llm=llm)
     prompt = llm.prompts_for("write")[0]
-    assert "say big not enormous" in prompt.lower() and "average sentence under 9 words" in prompt
+    assert "say big not enormous" in prompt.lower() and "Average under 9 words" in prompt
+
+
+def test_story_with_no_talking_is_flagged():
+    from bedtime.checks import dialogue_share
+    brief = Brief(listener=listener(age=5), genre=GENRES["calming"], story_request="x")
+    quiet = make_story(name="Mia").replace('said, "Look, Bob, the moon!"', "saw the moon.")
+    assert dialogue_share(parse_story(quiet).text) == 0
+    _, issues = code_checks(brief, parse_story(quiet))
+    assert any("hardly talk" in i for i in issues)
+
+
+def test_hard_draft_is_simplified_before_judging():
+    fancy = make_story().replace("purred.", "purred in the tranquil, luminous, resplendent meadow.")
+    llm = good_llm(write=fancy, simplify=make_story())
+    events = []
+    result = create_story(listener(age=5), Request("calming", ""), llm=llm, on_event=events.append)
+    roles = [r for r, _, _ in llm.calls]
+    assert roles[:4] == ["plan", "write", "simplify", "judge"]
+    assert "tranquil" not in result.story.text
+    assert "tranquil" in llm.prompts_for("simplify")[0]           # told exactly what to swap
+    assert any("simpler" in e for e in events)
+
+
+def test_simplifier_result_is_dropped_if_it_is_not_simpler():
+    fancy = make_story().replace("purred.", "purred in the tranquil, luminous, resplendent meadow.")
+    llm = good_llm(write=fancy, simplify=fancy, revise=make_story())
+    result = create_story(listener(age=5), Request("calming", ""), llm=llm)
+    assert result.history[0].story.text == parse_story(fancy).text   # kept the original draft

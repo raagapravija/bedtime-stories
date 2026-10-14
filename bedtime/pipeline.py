@@ -10,7 +10,7 @@ import re
 from typing import Callable, Optional
 
 from . import prompts
-from .checks import keyword_hits
+from .checks import hard_words, keyword_hits, readability_problems
 from .config import (AUTO, AUTO_POOL, CUSTOM, FEEDBACK_REVISIONS, GENRES, MAX_REVISIONS,
                      QUALITY_PASS, TEMP_CLASSIFY, TEMP_PLAN, TEMP_REVISE, TEMP_WRITE)
 from .guard import (MAX_FEEDBACK, MAX_IDEA, MAX_TODAY, InvalidName, clean_name, clean_text,
@@ -219,13 +219,34 @@ def ensure_length(llm: LLM, brief: Brief, story: Story, on_event: Events = None)
     return story
 
 
+def ensure_simple(llm: LLM, brief: Brief, story: Story, on_event: Events = None) -> Story:
+    """gpt-3.5 drifts into grown-up words and long descriptions. If the code
+    checks find hard words, long sentences or too little talking, one focused
+    'rewrite this in very simple English' call fixes it before judging.
+    The rewrite is kept only if it really is simpler and not much shorter."""
+    problems = readability_problems(brief, story)
+    if not problems:
+        return story
+    simpler = _generate_story(llm, prompts.simplifier_prompt(brief, story, problems),
+                              prompts.SIMPLIFIER_SYSTEM, TEMP_REVISE, brief.pages, story.title)
+    better = len(readability_problems(brief, simpler)) < len(problems) or \
+        hard_words(simpler.text)[1] < hard_words(story.text)[1]
+    long_enough = simpler.word_count >= min(story.word_count * 0.75, brief.word_target * MIN_LENGTH)
+    if better and long_enough:
+        if on_event:
+            on_event("Made the words simpler")
+        return simpler
+    return story
+
+
 def write_story(llm: LLM, brief: Brief, plan: dict, on_event: Events = None) -> Story:
     story = _generate_story(llm, prompts.storyteller_prompt(brief, plan),
                             prompts.STORYTELLER_SYSTEM, TEMP_WRITE, brief.pages,
                             plan.get("title", "A Bedtime Story"))
     if on_event:
         on_event(f"Draft written ({story.word_count} words)")
-    return ensure_length(llm, brief, story, on_event)
+    story = ensure_length(llm, brief, story, on_event)
+    return ensure_simple(llm, brief, story, on_event)
 
 
 def revise_story(llm: LLM, brief: Brief, story: Story, verdict, parent_change: str = "") -> Story:

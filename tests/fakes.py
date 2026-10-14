@@ -11,6 +11,7 @@ ROLES = {
     "You write bedtime picture books": "write",
     "revising your own story": "revise",
     "You lengthen bedtime": "expand",
+    "You rewrite bedtime stories in very simple English": "simplify",
     "the judge for a bedtime-story app": "judge",
     "art director": "scenes",
     "voice director": "narration",
@@ -40,7 +41,7 @@ class FakeLLM:
 
 
 def make_story(pages=4, words_per_page=120, name="Mia", title="The Moon Bell"):
-    sentence = f"{name} and Bob the cat tiptoed. Softly under the moon."  # 10 words, 2 sentences
+    sentence = f'{name} said, "Look, Bob, the moon!" Bob the cat purred.'  # 10 words, 40% talking
     reps = max(1, words_per_page // 10)
     body = "\n".join(f"=== PAGE {i} ===\n" + " ".join([sentence] * reps) for i in range(1, pages + 1))
     return f"TITLE: {title}\n{body}"

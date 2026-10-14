@@ -189,23 +189,31 @@ Return JSON. The "pages" list must have exactly these {brief.pages} entries - fi
 # --------------------------------------------------------------------------- #
 # 3. Storyteller
 # --------------------------------------------------------------------------- #
-STORYTELLER_SYSTEM = """You write bedtime picture books in the warm, quiet tradition of the classics that families read again and again.
-Your stories sound like a parent's voice in a dim room: simple words, small specific details, gentle humour, a little repetition, and an ending that slows down until it is almost a whisper.
-You never sound like a computer, a lesson or an advertisement.""" + GUARD
+STORYTELLER_SYSTEM = """You write bedtime picture books for young children, in the warm, quiet tradition of the classics that families read again and again.
+You write in very simple English that a small child understands without help, and your characters talk the way real children and parents talk.
+You never sound like a computer, a lesson or a grown-up novel.""" + GUARD
 
 # Short ORIGINAL passages that show the voice. gpt-3.5 imitates an example far
 # better than it follows a description of one.
 VOICE_SAMPLES = {
-    "little": """Every night, when the sky turned the colour of blueberry jam, Little Bear put on his stripy socks. One sock. Two socks. Wiggle, wiggle, toes.
-"Is it time?" he asked.
-"Almost," said Mama Bear. She was humming the hum-hum song, the one that sounds like rain on the roof.
-Little Bear looked under his bed. Just one lost mitten and a very surprised beetle.
-"Goodnight, beetle," he whispered.
-The beetle did not say goodnight back. Beetles are shy like that.""",
-    "older": """Nobody on Puddle Lane knew why the lamplighter's cat sat on the post office roof every evening at exactly six o'clock. Theo had a theory. Theo had a lot of theories, most of them written in pencil on the back of his hand.
+    # ages 5-8: very simple words, lots of child-like talking
+    "little": """Tia pressed her nose to the window.
+"Mumma, look! What is that?"
+"That is the moon," said Mumma.
+"Why is it so big tonight?"
+"Maybe it came to say goodnight to you."
+Tia waved. "Hi, moon! Hi!"
+The moon did not wave back. But Tia was sure it smiled.
+"Can the moon sleep in my room?" she asked.
+Mumma laughed. "It is too big, silly. But it can shine on your bed."
+And it did. Soft and white, like a warm blanket.""",
+    # ages 9-10: still plain words, a little more wit
+    "older": """Nobody on Puddle Lane knew why the old cat sat on the post office roof every evening at six o'clock. Theo had a guess. Theo always had a guess.
 "She's waiting for a letter," he told his sister.
-"Cats don't get letters," said June, who was nine and therefore knew everything.
-But that night, when the first star blinked on like someone testing a torch, the cat stood up, stretched one long stripy stretch, and looked straight at Theo's window.""",
+"Cats don't get letters," said June. She was nine, so she knew everything.
+"Then what is she doing up there?"
+June didn't know. She hated not knowing.
+That night, when the first star came out, the cat stood up. She stretched one long stretch. Then she looked right at Theo's window.""",
 }
 
 # Phrases that make a story sound machine-written. Checked in code, too.
@@ -226,50 +234,56 @@ TITLE: <title>
 (and so on up to PAGE {pages})"""
 
 
+def _sample_for(tier) -> str:
+    return VOICE_SAMPLES["older" if tier.key == "big" else "little"]
+
+
+def _simple_rules(brief) -> str:
+    """The most important rules, shared by the writer, lengthener and simplifier."""
+    tier = brief.tier
+    return f"""1. SIMPLE WORDS. {tier.vocabulary}
+2. SHORT SENTENCES. Average under {tier.max_avg_sentence} words. Many sentences are only 3-6 words.
+3. LOTS OF TALKING. At least a third of every page is the characters talking, in short, real, child-like lines: questions, pointing things out, little jokes. Like: "Mumma, look! What is that?" / "Can I hold it?" / "Shh, it's sleeping."
+4. NO FANCY DESCRIPTIONS. Say what happens and what people say. One simple detail is better than three fancy ones."""
+
+
 def storyteller_prompt(brief, plan: dict) -> str:
     tier = brief.tier
     per_page = brief.word_target // brief.pages
-    # The very simple sample suits ages 5-8; the wittier one is for 9-10.
-    sample = VOICE_SAMPLES["older" if tier.key == "big" else "little"]
     paragraphs = "2-3" if per_page < 130 else "3-4"
-    return f"""Write the full story from this plan.
+    return f"""Write a bedtime story for a {brief.listener.age}-year-old from this plan.
+
+THE MOST IMPORTANT RULES:
+{_simple_rules(brief)}
+
+Here is the voice to copy. Copy how simple it is and how the characters talk - NOT its names, places or plot:
+---
+{_sample_for(tier)}
+---
 
 <story_plan>
 {json.dumps(plan, indent=2)}
 </story_plan>
 
-THE VOICE. Here is a short passage in the voice to aim for. Copy its warmth and rhythm, NOT its characters, places or plot:
----
-{sample}
----
-What makes it work:
-- Small, specific, real details (stripy socks, a lost mitten, pencil on the back of a hand) instead of big words like "magical" or "amazing".
-- Short sentences, said out loud - but plenty of them. Some sentences are just three or four words.
-- Gentle humour, often in a quiet aside ("Beetles are shy like that.").
-- Characters talk like real children and parents - short, plain, warm.
-- Feelings are shown by what people do (a whisper, a hug, toes wiggling), not named.
-- A little repetition or a refrain the child can say along with.
-
-Listener age: {brief.listener.age}. Tone: {tier.tone}
-LENGTH MATTERS: the whole story is about {brief.word_target} words. Each page is {paragraphs} short paragraphs, about {per_page} words. Fill each page with small moments - what the characters see, hear, do and say - rather than rushing the plot.
-SIMPLE ENGLISH: {tier.vocabulary} Keep the average sentence under {tier.max_avg_sentence} words.
+Tone: {tier.tone}
+Length: the whole story is about {brief.word_target} words. Each page is {paragraphs} short paragraphs, about {per_page} words. Fill pages with small moments and talking, not with description.
 
 Content rules (must follow):
 {tier.rules_text()}
 
 The story:
-- Start in the middle of something small and real, not with a description of the setting.
+- Start in the middle of something small and real.
 - The hero solves the problem with their own idea, using the signature detail from the plan.
-- Let the story show what it means; never explain the lesson.
-- On the last page, everything slows down: shorter, softer sentences. Weave the breathing game in as something the characters do, inviting the listener to do it too ("Can you breathe in like that? In... and out..."). End with sleep.
+- Never explain the lesson.
+- On the last page, everything slows down. Weave in the breathing game as something the characters do, and invite the listener too ("Can you breathe like that? In... and out..."). End with sleep.
+- Never use these phrases: {", ".join(CLICHES)}.
 
-Never use these tired phrases: {", ".join(CLICHES)}.
-
-{STORY_FORMAT.format(pages=brief.pages)}""" + reminder("write a warm, cozy bedtime story from the plan, in the voice of the sample")
+{STORY_FORMAT.format(pages=brief.pages)}""" + reminder(
+        f"write the story in very simple words a {brief.listener.age}-year-old understands, with lots of child-like talking")
 
 
 EXPANDER_SYSTEM = """You lengthen bedtime picture-book stories that came out too short.
-You add small, cozy moments - what the characters notice, a little dialogue, a gentle aside, a sound or a texture - so each page feels full. You never change the plot, the names or the ending, and you keep the same warm, simple voice.""" + GUARD
+You add small moments and simple, child-like talking - never fancy description. You never change the plot, the names or the ending, and you keep the words very simple.""" + GUARD
 
 
 def expander_prompt(brief, story) -> str:
@@ -281,13 +295,10 @@ def expander_prompt(brief, story) -> str:
 Make each page longer:
 {counts}
 
-How to add length well:
-- Slow down the moments that are already there. Show what the characters see, hear and feel.
-- Add a few lines of warm, simple dialogue.
-- Add a small, specific detail or a gentle funny aside.
-- Simple English: {brief.tier.vocabulary} Keep sentences short (average under {brief.tier.max_avg_sentence} words).
-- Do not add new characters, new problems or a new plot. Keep the same ending and the breathing game.
-- Never use these tired phrases: {", ".join(CLICHES)}.
+Add length with talking and small moments: a child asks a question, someone answers, someone points at something, a little joke, a hug. Do not add new characters, new problems or a new plot. Keep the same ending and the breathing game.
+
+KEEP THESE RULES:
+{_simple_rules(brief)}
 
 Content rules:
 {brief.tier.rules_text()}
@@ -295,7 +306,35 @@ Content rules:
 {_story_block(story)}
 
 Return the full, longer story.
-{STORY_FORMAT.format(pages=brief.pages)}""" + reminder("make the story longer and cozier without changing what happens")
+{STORY_FORMAT.format(pages=brief.pages)}""" + reminder("make the story longer using simple words and child-like talking")
+
+
+SIMPLIFIER_SYSTEM = """You rewrite bedtime stories in very simple English for young children.
+You keep the same story, names, pages and ending, but you make every word easy and let the characters talk like real children and parents.""" + GUARD
+
+
+def simplifier_prompt(brief, story, problems: list[str]) -> str:
+    per_page = brief.word_target // brief.pages
+    return f"""Rewrite this bedtime story so a {brief.listener.age}-year-old understands every word.
+
+What is wrong now:
+{_bullets(problems)}
+
+RULES:
+{_simple_rules(brief)}
+
+Here is how simple it should sound (copy the style, not the story):
+---
+{_sample_for(brief.tier)}
+---
+
+Keep the same plot, names, pages and ending, and the breathing game on the last page. Keep about {per_page} words on every page: when you remove a fancy description, put a simple line of talking or a simple action in its place.
+
+{_story_block(story)}
+
+Return the full rewritten story.
+{STORY_FORMAT.format(pages=brief.pages)}""" + reminder(
+        f"rewrite the story in very simple words a {brief.listener.age}-year-old understands, with lots of talking")
 
 
 # --------------------------------------------------------------------------- #
@@ -318,7 +357,7 @@ def quality_questions(brief) -> dict[str, str]:
         "show_not_tell": "Is any lesson shown through actions, with no stated moral?",
         "senses": "Are there small, specific, real details (sounds, textures, objects) rather than big vague adjectives?",
         "read_aloud": "Is it fun to read aloud, with rhythm, repetition, playful sounds or a refrain?",
-        "heartfelt_dialogue": "Do characters talk like real people - short, plain, warm?",
+        "heartfelt_dialogue": "Do the characters talk a lot, in short, real, child-like lines (questions, pointing things out, little jokes)?",
         "cozy_voice": "Does it sound like a real bedtime picture book read aloud - simple, specific, gentle - rather than generic, flowery or machine-written?",
         "wind_down": "Does the last page get slower and calmer, ending with sleep or a cozy sleepy image?",
         "breathing_game": "Does the ending include a short breathing game that fits the story?",
@@ -385,7 +424,8 @@ def reviser_prompt(brief, story, *, safety: list[str], requirements: list[str],
 {notes}
 
 Keep: {brief.pages} pages, about {brief.word_target} words, and the wind-down last page with the breathing game. Keep the average sentence under {brief.tier.max_avg_sentence} words.
-Simple English: {brief.tier.vocabulary}
+Keep these rules:
+{_simple_rules(brief)}
 Keep the voice warm, simple and specific, like a classic bedtime picture book read aloud. Never use these tired phrases: {", ".join(CLICHES)}.
 
 Content rules:

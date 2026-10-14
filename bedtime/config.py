@@ -70,6 +70,7 @@ class AgeTier:
     banned_patterns: list[str] = field(default_factory=list)
     vocabulary: str = ""            # plain-English guidance for the writer
     max_hard_words: float = 0.05    # share of long (3+ syllable) words allowed
+    min_dialogue: float = 0.2       # share of words that are characters talking
 
     def rules_text(self) -> str:
         return "\n".join(f"- {r}" for r in self.rules + UNIVERSAL_RULES)
@@ -118,6 +119,7 @@ TIERS = {
                    "delighted, shiny not glistening, quiet not tranquil, said not exclaimed. "
                    "One idea per sentence.",
         max_hard_words=0.03,
+        min_dialogue=0.3,
     ),
     "middle": AgeTier(
         key="middle",
@@ -146,6 +148,7 @@ TIERS = {
         vocabulary="Use simple, everyday words a 7-year-old can read alone. Mostly short words; "
                    "say big not enormous, glad not delighted, quiet not peaceful. No fancy words.",
         max_hard_words=0.05,
+        min_dialogue=0.25,
     ),
     "big": AgeTier(
         key="big",
@@ -169,6 +172,7 @@ TIERS = {
         vocabulary="Use clear, everyday English a 9-year-old reads easily. At most one or two less "
                    "common words, and make their meaning obvious from the story. No flowery language.",
         max_hard_words=0.08,
+        min_dialogue=0.15,
     ),
 }
 
