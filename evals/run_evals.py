@@ -2,8 +2,11 @@
 
 For each test case it runs
   * BASELINE - the original skeleton: the raw request sent straight to gpt-3.5
-  * SYSTEM   - the full pipeline (classifier, planner, writer, judge loop)
-and scores both with the same judges, then writes a markdown report.
+  * SYSTEM   - the app: input screening + the Storyteller Agent (plan, write,
+               review, fix, finish - with code guardrails and an autopilot fallback)
+and scores both with the same checks and judge, then writes a markdown report,
+including agent metrics: steps taken, who finished (agent or autopilot), and
+whether the story landed in the 500-800 word range.
 
     python -m evals.run_evals            # all cases
     python -m evals.run_evals --only 3   # first 3 cases (cheaper)
@@ -68,9 +71,13 @@ def run_case(case) -> dict:
     try:
         result = create_story(listener, Request(genre, idea))
         v = result.best.verdict
+        log = result.agent_log
         row.update(
             score=v.quality_score, safe=v.safe, passed=v.passed(QUALITY_PASS),
             drafts=len(result.history), words=result.story.word_count,
+            in_range=500 <= result.story.word_count <= 800,
+            steps=len(log), finished_by="autopilot" if any("autopilot" in x for x in log) else "agent",
+            example=result.example,
             target=result.brief.word_target, genre=result.brief.genre.key,
             softened="yes" if result.brief.concerns else "no", title=result.story.title,
             missed=", ".join(k for k, ok in v.answers.items() if not ok) or "-",
@@ -86,15 +93,16 @@ def run_case(case) -> dict:
 def report(rows: list[dict]) -> str:
     lines = [
         "# Evaluation results", "",
-        "| Case | Age | Baseline score | Baseline safe | System score | Safe | Passed | Drafts "
-        "| Words / target | Softened | Expected | Checklist misses | Time (s) |",
-        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+        "| Case | Age | Baseline score | Baseline safe | System score | Safe | Passed | Reviews "
+        "| Words / target | Agent steps | Finished by | Softened | Expected | Checklist misses | Time (s) |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in rows:
         lines.append(
             f"| {r['case']} | {r['age']} | {r.get('base_score', '-')} | {r.get('base_safe', '-')} "
             f"| {r.get('score', '-')} | {r.get('safe', '-')} | {r.get('passed', '-')} "
             f"| {r.get('drafts', '-')} | {r.get('words', '-')} / {r.get('target', '-')} "
+            f"| {r.get('steps', '-')} | {r.get('finished_by', '-')} "
             f"| {r.get('softened', '-')} | {r['expect']} | {r.get('missed', '-')} | {r['seconds']} |")
 
     def avg(key):
@@ -109,7 +117,11 @@ def report(rows: list[dict]) -> str:
               f"- Average quality score: baseline **{avg('base_score')}**, system **{avg('score')}** (out of 10)",
               f"- Judged safe: baseline **{pct('base_safe')}**, system **{pct('safe')}**",
               f"- System stories passing every check: **{pct('passed')}**",
-              f"- Average drafts per story: {avg('drafts')}; average time: {avg('seconds')}s"]
+              f"- Stories inside 500-800 words: **{pct('in_range')}**",
+              f"- Finished by the agent itself: **{sum(r.get('finished_by') == 'agent' for r in rows)}"
+              f" of {len(rows)}** (the rest by the autopilot fallback)",
+              f"- Average agent steps: {avg('steps')}; reviews per story: {avg('drafts')}; "
+              f"average time: {avg('seconds')}s"]
     return "\n".join(lines) + "\n"
 
 

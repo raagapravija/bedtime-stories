@@ -19,12 +19,12 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from bedtime.config import (AUTO, CUSTOM, GENRE_BLURBS, GENRES, MAX_AGE, MIN_AGE,
-                            QUALITY_PASS)
+from bedtime.config import AUTO, CUSTOM, GENRE_BLURBS, GENRES, MAX_AGE, MIN_AGE
 from bedtime.guard import MAX_FEEDBACK, MAX_IDEA, InvalidName, clean_name
 from bedtime.llm import APIUnavailable, LLMFormatError, MissingAPIKey
 from bedtime.models import Listener, Request, StoryBlocked, StoryResult, StoryUnsafe
-from bedtime.pipeline import apply_feedback, create_story
+from bedtime.pipeline import ModelRefused, apply_feedback, create_story
+from bedtime.trace import Tracer
 
 WEB_DIR = Path(__file__).parent / "web"
 
@@ -44,6 +44,8 @@ def friendly_error(exc: Exception) -> str:
         return f"That idea isn't right for bedtime ({exc}). Let's try a different one!"
     if isinstance(exc, StoryUnsafe):
         return "I couldn't make that story gentle enough for bedtime. Let's try a different idea!"
+    if isinstance(exc, ModelRefused):
+        return "The story model wouldn't write this one. Please try again, or pick another kind of story."
     if isinstance(exc, LLMFormatError):
         return "The story model gave answers I couldn't read. Please try again."
     if isinstance(exc, ModuleNotFoundError):
@@ -53,7 +55,6 @@ def friendly_error(exc: Exception) -> str:
 
 
 def story_payload(story_id: str, result: StoryResult, note: str = "") -> dict:
-    v = result.best.verdict
     notes = list(result.brief.concerns)
     if note:
         notes.append(note)
@@ -62,10 +63,7 @@ def story_payload(story_id: str, result: StoryResult, note: str = "") -> dict:
         "title": result.story.title,
         "pages": result.story.pages,
         "genre": result.brief.genre.name,
-        "score": v.quality_score,
-        "passed": v.passed(QUALITY_PASS),
-        "words": result.story.word_count,
-        "drafts": len(result.history),
+        "genre_key": result.brief.genre.key,
         "notes": notes,
     }
 
@@ -189,7 +187,16 @@ class Handler(BaseHTTPRequestHandler):
                 listener, request = parse_story_request(data)
 
                 def work(on_event):
-                    result = create_story(listener, request, on_event=on_event)
+                    tracer = Tracer()            # saves every step to output/debug/
+                    def both(msg):
+                        tracer.event(msg)
+                        on_event(msg)
+                    try:
+                        result = create_story(listener, request, llm=tracer, on_event=both)
+                    except Exception as exc:
+                        tracer.save(request.genre, error=str(exc))
+                        raise
+                    tracer.save(result.story.title, result)
                     story_id = uuid.uuid4().hex
                     with LOCK:
                         STORIES[story_id] = result
@@ -210,7 +217,12 @@ class Handler(BaseHTTPRequestHandler):
                     raise BadRequest(f"Please keep the change under {MAX_FEEDBACK} characters.")
 
                 def work(on_event):
-                    new, note = apply_feedback(result, change, on_event=on_event)
+                    tracer = Tracer()
+                    def both(msg):
+                        tracer.event(msg)
+                        on_event(msg)
+                    new, note = apply_feedback(result, change, llm=tracer, on_event=both)
+                    tracer.save("change-" + new.story.title, new)
                     with LOCK:
                         STORIES[story_id] = new
                     unchanged = new is result

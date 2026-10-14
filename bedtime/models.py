@@ -36,6 +36,10 @@ class Brief:
     todays_moment_sensitive: bool = False
     concerns: list[str] = field(default_factory=list)   # what was softened
     word_target: int = 0
+    example: str = ""            # library key of the voice example in use (copy checks)
+    from_parent: bool = False    # the parent typed their own idea (it must be the heart of the story)
+    spark: str = ""              # code-picked starting idea when the parent typed none
+    hero: str = ""               # code-picked hero name when the parent gave none
 
     def __post_init__(self) -> None:
         if not self.word_target:
@@ -64,9 +68,9 @@ class Story:
         return len(re.findall(r"[A-Za-z']+", self.text))
 
     def formatted(self) -> str:
-        """The exact format the writer and reviser are asked to produce."""
-        body = "\n".join(f"=== PAGE {i} ===\n{p}" for i, p in enumerate(self.pages, 1))
-        return f"TITLE: {self.title}\n{body}"
+        """The exact format the writer and reviser are asked to produce: one
+        continuous story. Pages are only made by code, for the page display."""
+        return f"TITLE: {self.title}\n\n{self.text}"
 
 
 @dataclass
@@ -104,6 +108,9 @@ class StoryResult:
     plan: dict
     best: Draft
     history: list[Draft]
+    agent_log: list[str] = field(default_factory=list)   # every decision the agent made
+    passages: list[str] = field(default_factory=list)    # the story as the agent edits it
+    example: str = ""                                    # library key of the voice example
 
     @property
     def story(self) -> Story:

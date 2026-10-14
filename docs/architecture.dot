@@ -1,31 +1,49 @@
 digraph G {
-  graph [rankdir=TB, fontname="Helvetica", fontsize=13, nodesep=0.5, ranksep=0.45, pad=0.35, bgcolor="white"];
+  graph [rankdir=TB, fontname="Helvetica", fontsize=13, nodesep=0.4, ranksep=0.45, pad=0.35, bgcolor="white", compound=true];
   node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12, penwidth=0.8, margin="0.2,0.09"];
   edge  [fontname="Helvetica", fontsize=10, color="#5F5E5A", arrowsize=0.7];
 
-  user [label="Parent on the web page\nname · age 5-10 · genre (Surprise me, 11 genres, My own idea)", fillcolor="#F1EFE8", color="#5F5E5A"];
-  guard [label="Input guard (code)\nclean text · valid name · injection check", fillcolor="#E1F5EE", color="#0F6E56"];
-  classify [label="Classifier + safety gate  (only for \"My own idea\")\nsoften / block · genre · must-include", fillcolor="#E1F5EE", color="#0F6E56"];
-  plan  [label="Planner\nbeats → pages (layout decided in code)\ncharacters · signature detail · breathing game", fillcolor="#EEEDFE", color="#534AB7"];
-  write [label="Storyteller  (temp 0.8)\nage tone · 400-800 words", fillcolor="#EEEDFE", color="#534AB7"];
+  user  [label="Parent on the web page\nname · age 5-10 · genre (Surprise me, 11 genres, My own idea)", fillcolor="#F1EFE8", color="#5F5E5A"];
+  guard [label="Input guard (code)\nclean text · real names only · injection check", fillcolor="#E1F5EE", color="#0F6E56"];
+  screen [label="Safety screen (1 LLM call, only for \"My own idea\")\nsoften / block · original characters · genre", fillcolor="#E1F5EE", color="#0F6E56"];
 
-  subgraph cluster_judge {
-    label="Judge"; fontcolor="#085041"; style="rounded"; color="#1D9E75";
-    code  [label="Code checks (free)\nwords · pages · name\nbanned words · moral", fillcolor="#E1F5EE", color="#0F6E56"];
-    llmj  [label="One LLM judge call (temp 0)\nsafety issues (veto)\n+ yes/no checklist → score in code", fillcolor="#E1F5EE", color="#0F6E56"];
+  subgraph cluster_agent {
+    label="Storyteller Agent  (gpt-3.5-turbo, tool calling, one conversation)"; fontcolor="#633806"; style="rounded"; color="#BA7517"; penwidth=1.6;
+    observe [label="Observe\ntool result / report card", fillcolor="#FAEEDA", color="#854F0B"];
+    decide  [label="Decide: call ONE tool", shape=diamond, style="filled", fillcolor="#FAEEDA", color="#854F0B", fontsize=11];
+    lib   [label="search_library(tone)\n→ 1 example for age + mood", fillcolor="#FFFFFF", color="#854F0B"];
+    plan  [label="check_plan(events)\n→ PLAN OK / problems", fillcolor="#FFFFFF", color="#854F0B"];
+    write [label="write_part(first, last)\n→ next message = story text", fillcolor="#FFFFFF", color="#854F0B"];
+    review [label="review_story()\n→ report card", fillcolor="#FFFFFF", color="#854F0B"];
+    fix   [label="rewrite_passage(n) · add_passage(after)\n→ next message = new text", fillcolor="#FFFFFF", color="#854F0B"];
+    fin   [label="finish(reason)", fillcolor="#FFFFFF", color="#854F0B"];
   }
-  decide [label="Pass?\nsafe AND no code issues AND score ≥ 8", shape=diamond, style="filled", fillcolor="#FAEEDA", color="#854F0B", fontsize=11];
-  revise [label="Reviser\nsafety → requirements → notes\nat most 1 round · keeps best draft", fillcolor="#EEEDFE", color="#534AB7"];
-  show   [label="Story on the web page", fillcolor="#F1EFE8", color="#5F5E5A"];
+
+  subgraph cluster_harness {
+    label="Harness (code)"; fontcolor="#791F1F"; style="rounded,dashed"; color="#A32D2D";
+    library [label="Story library\n12 examples · 3 age bands × 4 moods", fillcolor="#EEEDFE", color="#534AB7"];
+    checks [label="Code checks\nwords 500-800 · safety words · repeats · copying the example\noverused words · hard words · habits · passive · talking", fillcolor="#E1F5EE", color="#0F6E56"];
+    judge  [label="LLM judge (1 call per review)\nsafety veto · yes/no checklist → score in code", fillcolor="#E1F5EE", color="#0F6E56"];
+    rails  [label="Guardrails\nno writing before plan passes · text checked before accepted\nfinish refused unless safe, in range, no copy/repeat, reviewed, passing\nargs validated · repeats refused · budgets: 24 tools / 34 turns / 150 s", fillcolor="#FCEBEB", color="#A32D2D", fontsize=11];
+    auto   [label="Autopilot fallback\nsame tools, fixed decisions:\nplan → write → review → add/shorten to fit", fillcolor="#FCEBEB", color="#A32D2D"];
+    trace  [label="Tracer: every turn, tool call\nand model call → output/debug/", fillcolor="#F1EFE8", color="#5F5E5A"];
+  }
+
+  show [label="Story on the web page\nsafe · 500-800 words · reviewed\nbest draft kept", fillcolor="#F1EFE8", color="#5F5E5A"];
 
   user -> guard;
-  guard -> classify [label=" own idea"];
-  guard -> plan [label=" genre picked\n (no screening call)"];
-  classify -> plan -> write;
-  write -> code; write -> llmj;
-  code -> decide; llmj -> decide;
-  decide -> show [label=" yes"];
-  decide -> revise [label=" no"];
-  revise -> code [style=dashed, label=" judge again"];
-  show -> revise [label=" \"make it funnier\"\n (guarded, then judged again)"];
+  guard -> screen [label=" own idea"];
+  guard -> observe [label=" genre picked", lhead=cluster_agent];
+  screen -> observe [lhead=cluster_agent];
+  observe -> decide;
+  decide -> lib; decide -> plan; decide -> write; decide -> review; decide -> fix; decide -> fin;
+  lib -> library [style=dashed, dir=both];
+  plan -> checks [style=dashed];
+  review -> checks [style=dashed]; review -> judge [style=dashed];
+  fin -> rails [label=" asks"];
+  rails -> show [label=" allowed"];
+  rails -> observe [label=" refused + why", style=dashed, color="#A32D2D", constraint=false];
+  decide -> auto [label=" error / out of budget", style=dotted];
+  auto -> show;
+  show -> observe [label=" \"make it funnier\"\n(injection-checked, fenced\nas <parent_change>)", constraint=false];
 }

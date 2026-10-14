@@ -35,7 +35,8 @@ class LLMFormatError(RuntimeError):
 
 class LLM(Protocol):
     def __call__(self, prompt: str, max_tokens: int = ..., temperature: float = ...,
-                 system: Optional[str] = ..., json_mode: bool = ...) -> str: ...
+                 system: Optional[str] = ..., json_mode: bool = ...,
+                 examples: Optional[list] = ...) -> str: ...
 
 
 _client = None
@@ -57,15 +58,23 @@ def get_client():
 
 
 def call_model(prompt: str, max_tokens: int = 3000, temperature: float = 0.1,
-               system: Optional[str] = None, json_mode: bool = False) -> str:
+               system: Optional[str] = None, json_mode: bool = False,
+               examples: Optional[list] = None) -> str:
     """Same entry point as the original skeleton, extended with a system prompt
-    and JSON mode. Always uses CORE_MODEL (gpt-3.5-turbo)."""
+    and JSON mode. Always uses CORE_MODEL (gpt-3.5-turbo).
+
+    examples: optional (request, answer) pairs sent as earlier turns of the chat.
+    gpt-3.5 copies the voice and length of its "own" earlier answer far more
+    faithfully than an example pasted into the middle of a long prompt."""
     from openai import (APIConnectionError, APITimeoutError, AuthenticationError,
                         InternalServerError, NotFoundError, PermissionDeniedError, RateLimitError)
 
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
+    for request, answer in examples or []:
+        messages.append({"role": "user", "content": request})
+        messages.append({"role": "assistant", "content": answer})
     messages.append({"role": "user", "content": prompt})
     extra = {"response_format": {"type": "json_object"}} if json_mode else {}
 
@@ -95,6 +104,27 @@ def call_model(prompt: str, max_tokens: int = 3000, temperature: float = 0.1,
         except (PermissionDeniedError, NotFoundError):
             raise APIUnavailable(f"Your OpenAI account can't use the model '{CORE_MODEL}'.") from None
         except (APIConnectionError, APITimeoutError, InternalServerError):
+            if attempt == 2:
+                raise
+            time.sleep(2 ** attempt)
+    raise AssertionError("unreachable")
+
+
+def call_chat(messages: list[dict], tools: list[dict], temperature: float = 0.2,
+              max_tokens: int = 600) -> dict:
+    """One turn of a tool-using chat (for the Storyteller Agent), on CORE_MODEL.
+    Returns {"content": str, "tool_calls": [{"id", "name", "arguments": str}]}."""
+    from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
+    for attempt in range(3):
+        try:
+            resp = get_client().chat.completions.create(
+                model=CORE_MODEL, messages=messages, tools=tools, tool_choice="auto",
+                temperature=temperature, max_tokens=max_tokens)
+            msg = resp.choices[0].message
+            return {"content": msg.content or "",
+                    "tool_calls": [{"id": c.id, "name": c.function.name, "arguments": c.function.arguments}
+                                   for c in (msg.tool_calls or [])]}
+        except (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError):
             if attempt == 2:
                 raise
             time.sleep(2 ** attempt)

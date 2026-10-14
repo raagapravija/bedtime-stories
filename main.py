@@ -2,7 +2,6 @@
 
     python main.py                       # interactive
     python main.py --age 6 --genre 6 --idea "a sleepy otter" --name Mia
-    python main.py --storybook           # also build the animated book read by Nari
 """
 from __future__ import annotations
 
@@ -20,6 +19,7 @@ from bedtime.guard import InvalidName, clean_name
 from bedtime.llm import APIUnavailable, LLMFormatError, MissingAPIKey
 from bedtime.models import Listener, Request, StoryBlocked, StoryResult, StoryUnsafe, slugify
 from bedtime.pipeline import apply_feedback, create_story
+from bedtime.trace import Tracer
 
 OUTPUT_DIR = Path(__file__).parent / "output"
 MAX_FEEDBACK = 5
@@ -138,6 +138,7 @@ def show_story(result: StoryResult, verbose: bool) -> None:
         for para in page.split("\n"):
             if para.strip():
                 say(textwrap.fill(para.strip(), width))
+                say()
     say()
     say(c("The End".rjust(width), "1;33"))
     say()
@@ -194,7 +195,6 @@ def parse_args(argv=None):
     p.add_argument("--genre", help="menu number (0 auto, 1-11, 12 custom) or a genre key")
     p.add_argument("--idea", help="story idea (for the Custom genre)")
     p.add_argument("--no-feedback", action="store_true", help="skip the change-request loop")
-    p.add_argument("--storybook", action="store_true", help="build the animated book read by Nari")
     p.add_argument("--verbose", action="store_true", help="show the judge's full verdict")
     return p.parse_args(argv)
 
@@ -206,9 +206,16 @@ def main(argv=None) -> int:
     say()
 
     say(c("  Writing your story - this usually takes 30-60 seconds...", "2"))
+    tracer = Tracer()                                   # every step saved to output/debug/
+
+    def traced(fn):
+        def inner(msg):
+            tracer.event(msg)
+            fn(msg)
+        return inner
     _started[0] = time.monotonic()
     try:
-        result = create_story(listener, request, on_event=event)
+        result = create_story(listener, request, llm=tracer, on_event=traced(event))
     except (MissingAPIKey, APIUnavailable) as e:
         say(c(f"\n{e}", "31"))
         return 1
@@ -236,17 +243,15 @@ def main(argv=None) -> int:
             if not change:
                 break
             _started[0] = time.monotonic()
-            result, note = apply_feedback(result, change, on_event=event)
+            result, note = apply_feedback(result, change, llm=tracer, on_event=traced(event))
             if note:
                 say(c(f"  Note: {note}", "33"))
             show_story(result, args.verbose)
 
+    trace_path = tracer.save(result.story.title, result)
     folder = save(result)
-    say(c(f"\nSaved to {folder}", "2"))
+    say(c(f"\nSaved to {folder}  (step-by-step trace: {trace_path.name})", "2"))
 
-    if args.storybook:   # optional extra, off by default
-        from bedtime.storybook import build_storybook
-        build_storybook(result, folder, on_event=event, open_browser=True)
 
     name = listener.name or "little one"
     say(c(f"\nGoodnight, {name}. Sweet dreams. ✨\n", "1;35"))
