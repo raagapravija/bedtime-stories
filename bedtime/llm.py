@@ -25,6 +25,10 @@ class MissingAPIKey(RuntimeError):
     pass
 
 
+class APIUnavailable(RuntimeError):
+    """A problem retrying can't fix: no credits, bad key, no access to the model."""
+
+
 class LLMFormatError(RuntimeError):
     """The model kept returning output we could not parse or validate."""
 
@@ -47,7 +51,8 @@ def get_client():
             )
         from openai import OpenAI
 
-        _client = OpenAI()
+        # Fail fast: 60s per call, and no hidden library retries on top of ours.
+        _client = OpenAI(timeout=60, max_retries=0)
     return _client
 
 
@@ -55,7 +60,8 @@ def call_model(prompt: str, max_tokens: int = 3000, temperature: float = 0.1,
                system: Optional[str] = None, json_mode: bool = False) -> str:
     """Same entry point as the original skeleton, extended with a system prompt
     and JSON mode. Always uses CORE_MODEL (gpt-3.5-turbo)."""
-    from openai import APIConnectionError, APITimeoutError, InternalServerError, RateLimitError
+    from openai import (APIConnectionError, APITimeoutError, AuthenticationError,
+                        InternalServerError, NotFoundError, PermissionDeniedError, RateLimitError)
 
     messages = []
     if system:
@@ -73,10 +79,25 @@ def call_model(prompt: str, max_tokens: int = 3000, temperature: float = 0.1,
                 **extra,
             )
             return resp.choices[0].message.content or ""
-        except (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError):
+        except RateLimitError as e:
+            # "No credits" arrives as a 429 too, but waiting won't fix it.
+            if getattr(e, "code", None) in ("insufficient_quota", "credit_balance_exhausted") \
+                    or "credits" in str(e).lower() or "quota" in str(e).lower():
+                raise APIUnavailable(
+                    "Your OpenAI account has no API credits left. Add credits at "
+                    "https://platform.openai.com/settings/organization/billing/ and try again."
+                ) from None
             if attempt == 2:
                 raise
             time.sleep(2 ** attempt)  # 1s, 2s back-off
+        except AuthenticationError:
+            raise APIUnavailable("OpenAI rejected the API key. Check OPENAI_API_KEY in your .env file.") from None
+        except (PermissionDeniedError, NotFoundError):
+            raise APIUnavailable(f"Your OpenAI account can't use the model '{CORE_MODEL}'.") from None
+        except (APIConnectionError, APITimeoutError, InternalServerError):
+            if attempt == 2:
+                raise
+            time.sleep(2 ** attempt)
     raise AssertionError("unreachable")
 
 

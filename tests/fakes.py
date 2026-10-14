@@ -8,11 +8,10 @@ from collections import defaultdict
 ROLES = {
     "intake editor": "classify",
     "planning a bedtime story": "plan",
-    "You write picture books": "write",
+    "You write bedtime picture books": "write",
     "revising your own story": "revise",
-    "child-safety reviewer": "safety",
-    "children's-book editor": "quality",
-    "screen change requests": "feedback",
+    "You lengthen bedtime": "expand",
+    "the judge for a bedtime-story app": "judge",
     "art director": "scenes",
     "voice director": "narration",
 }
@@ -41,7 +40,7 @@ class FakeLLM:
 
 
 def make_story(pages=4, words_per_page=120, name="Mia", title="The Moon Bell"):
-    sentence = f"{name} and Bob the cat tiptoed softly under the moon."  # 10 words
+    sentence = f"{name} and Bob the cat tiptoed. Softly under the moon."  # 10 words, 2 sentences
     reps = max(1, words_per_page // 10)
     body = "\n".join(f"=== PAGE {i} ===\n" + " ".join([sentence] * reps) for i in range(1, pages + 1))
     return f"TITLE: {title}\n{body}"
@@ -67,14 +66,13 @@ def plan_json(pages=4):
 
 
 QUALITY_KEYS = ["hook", "request_fit", "clear_arc", "hero_agency", "signature_detail",
-                "show_not_tell", "senses", "read_aloud", "heartfelt_dialogue", "wind_down",
-                "breathing_game", "age_fit", "child_hero", "todays_moment"]
+                "show_not_tell", "senses", "read_aloud", "heartfelt_dialogue", "cozy_voice",
+                "wind_down", "breathing_game", "age_fit", "child_hero", "todays_moment"]
 
 
-def quality_json(no: int = 0):
+def judge_json(no: int = 0, unsafe: bool = False):
+    """One combined judge reply: safety issues + critique + checklist answers."""
     answers = {k: ("no" if i < no else "yes") for i, k in enumerate(QUALITY_KEYS)}
-    return {"critique": "fine", "answers": answers, "fixes": ["Add a stronger hook."] if no else []}
-
-
-SAFE = {"issues": []}
-UNSAFE = {"issues": [{"rule": "No danger", "quote": "cliff", "fix": "remove the cliff"}]}
+    issues = [{"rule": "No danger", "quote": "cliff", "fix": "remove the cliff"}] if unsafe else []
+    return {"safety_issues": issues, "critique": "fine", "answers": answers,
+            "fixes": ["Add a stronger hook."] if no else []}

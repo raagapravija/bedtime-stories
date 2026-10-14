@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bedtime Story Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Grandstander:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --night: #1e1b3a;
+    --night-deep: #110f24;
+    --moonlight: #c9c2e6;     /* text on the night sky */
+    --gold: #f2c46d;          /* moon, selection, primary action */
+    --gold-deep: #6b4a12;
+    --paper: #faf0dc;
+    --paper-edge: #eedfc2;
+    --ink: #3a2e4d;           /* plum ink, softer than black */
+    --ink-soft: #75688a;
+    --plum: #3b2559;
+    --error: #b3402c;
+    --display: "Grandstander", "Chalkboard SE", "Comic Neue", "Trebuchet MS", sans-serif;
+    --body: "Andika", "Avenir Next", "Trebuchet MS", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--night-deep); }
+  body {
+    margin: 0; min-height: 100vh; color: var(--moonlight); font-family: var(--body);
+    background: var(--night-deep); line-height: 1.6;
+  }
+  .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(ellipse at 50% 0%, #2a2552 0%, var(--night) 35%, var(--night-deep) 85%); }
+  .star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff8e1; opacity: .45; }
+  main { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 40px 16px 64px; }
+
+  /* ---------- header ---------- */
+  header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+  .moon { width: 46px; height: 46px; border-radius: 50%; flex: none;
+    box-shadow: inset -12px 5px 0 0 var(--gold); transform: rotate(-20deg); }
+  h1 { font-family: var(--display); font-weight: 700; color: var(--gold);
+    font-size: clamp(28px, 5vw, 40px); line-height: 1.1; margin: 0; }
+  header p { margin: 4px 0 0; font-size: 17px; }
+
+  /* ---------- paper sheets ---------- */
+  .sheet { background: var(--paper); color: var(--ink); border-radius: 18px;
+    padding: clamp(22px, 5vw, 40px); box-shadow: 0 24px 60px rgba(0,0,0,.35); }
+  [hidden] { display: none !important; }
+
+  /* ---------- form ---------- */
+  .field { border: 0; margin: 0 0 28px; padding: 0; }
+  .field > legend, .field > label { display: block; font-family: var(--display); font-weight: 700;
+    font-size: 21px; margin-bottom: 10px; padding: 0; }
+  .hint { font-size: 15px; color: var(--ink-soft); margin: -6px 0 10px; }
+  input[type=text], textarea {
+    width: 100%; font: inherit; font-size: 18px; color: var(--ink); background: #fffaf0;
+    border: 2px solid var(--paper-edge); border-radius: 12px; padding: 12px 14px; }
+  textarea { min-height: 90px; resize: vertical; }
+  input[type=text]:focus, textarea:focus { outline: none; border-color: var(--plum); }
+
+  .ages { display: grid; grid-template-columns: repeat(6, minmax(0, 54px)); gap: 10px; }
+  .choice input { position: absolute; opacity: 0; pointer-events: none; }
+  .age span { display: grid; place-items: center; width: 100%; aspect-ratio: 1; border-radius: 50%;
+    font-family: var(--display); font-weight: 700; font-size: 22px; cursor: pointer;
+    background: #fffaf0; border: 2px solid var(--paper-edge); transition: background .15s, border-color .15s; }
+  .genres { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  .genre span { display: block; height: 100%; padding: 12px 14px; border-radius: 14px; cursor: pointer;
+    background: #fffaf0; border: 2px solid var(--paper-edge); transition: background .15s, border-color .15s; }
+  .genre b { display: block; font-family: var(--display); font-size: 17px; }
+  .genre small { display: block; font-size: 14px; color: var(--ink-soft); line-height: 1.35; margin-top: 2px; }
+  .choice span:hover { border-color: #d9c49b; }
+  .choice input:checked + span { background: #fdf0cf; border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+  .choice input:focus-visible + span { outline: 3px solid var(--plum); outline-offset: 2px; }
+  #ideaBox { margin-top: 14px; }
+  .count { text-align: right; font-size: 13px; color: var(--ink-soft); }
+
+  .error { color: var(--error); font-weight: 700; min-height: 1.6em; margin: 0 0 12px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  button { font: 700 18px var(--display); border: 0; border-radius: 999px; cursor: pointer; padding: 14px 28px; }
+  button:focus-visible { outline: 3px solid var(--plum); outline-offset: 3px; }
+  .primary { background: var(--plum); color: #fff3d6; }
+  .primary:hover { background: #4a2f6f; }
+  .primary:disabled { opacity: .6; cursor: progress; }
+  .secondary { background: transparent; color: var(--ink); border: 2px solid var(--paper-edge); padding: 12px 22px; }
+  .secondary:hover { border-color: var(--ink-soft); }
+  .chip { font: 15px var(--body); background: #fffaf0; color: var(--ink); border: 2px solid var(--paper-edge);
+    padding: 6px 14px; }
+  .chip:hover { border-color: var(--gold); }
+
+  /* ---------- progress ---------- */
+  .progress { text-align: center; padding: 40px 0 10px; }
+  .progress h2 { font-family: var(--display); color: var(--gold); font-size: 26px; margin: 18px 0 4px; }
+  .progress .moon { width: 64px; height: 64px; margin: 0 auto; box-shadow: inset -16px 7px 0 0 var(--gold); }
+  @media (prefers-reduced-motion: no-preference) {
+    .progress .moon { animation: rock 3s ease-in-out infinite; }
+  }
+  @keyframes rock { 50% { transform: rotate(-4deg) translateY(-4px); } }
+  .whisper { font-style: italic; opacity: .85; margin-top: 18px; transition: opacity .6s; }
+
+  /* ---------- the story ---------- */
+  .note { background: #fdf0cf; border-left: 4px solid var(--gold); border-radius: 0 10px 10px 0;
+    padding: 10px 14px; margin: 0 0 22px; font-size: 15px; }
+  .story h2 { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 4.5vw, 36px);
+    line-height: 1.15; text-align: center; margin: 0 0 6px; color: var(--plum); }
+  .byline { text-align: center; color: var(--ink-soft); margin: 0 0 26px; font-size: 15px; }
+  .story-text { font-size: 20px; line-height: 1.8; max-width: 62ch; margin: 0 auto; }
+  .story-text p { margin: 0 0 1em; }
+  .ornament { text-align: center; color: #c8a75e; letter-spacing: .6em; margin: 6px 0 22px; }
+  .the-end { text-align: center; font-family: var(--display); font-size: 22px; color: var(--plum); margin-top: 8px; }
+  .meta { text-align: center; color: var(--ink-soft); font-size: 14px; margin: 16px 0 0; }
+  .change { margin-top: 26px; padding-top: 24px; border-top: 2px dashed var(--paper-edge); }
+  .change h3 { font-family: var(--display); font-size: 21px; margin: 0 0 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 16px; }
+  .change-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .change-row input { flex: 1 1 260px; }
+  @media (max-width: 420px) {
+    .ages { gap: 6px; }
+    .age span { font-size: 19px; }
+  }
+  footer { text-align: center; font-size: 14px; margin-top: 28px; opacity: .8; }
+</style>
+</head>
+<body>
+<div class="stars" id="stars" aria-hidden="true"></div>
+<main>
+  <header>
+    <div class="moon" aria-hidden="true"></div>
+    <div>
+      <h1>Bedtime Story Maker</h1>
+      <p>A brand-new story for tonight, made just for them.</p>
+    </div>
+  </header>
+
+  <!-- 1. The form -->
+  <form class="sheet" id="storyForm" novalidate>
+    <div class="field">
+      <label for="name">Who's listening tonight?</label>
+      <p class="hint">Their name makes them the hero. You can leave it empty.</p>
+      <input type="text" id="name" name="name" maxlength="30" autocomplete="off" placeholder="Their name">
+    </div>
+
+    <fieldset class="field">
+      <legend>How old are they?</legend>
+      <div class="ages" id="ages"></div>
+    </fieldset>
+
+    <fieldset class="field">
+      <legend>What kind of story?</legend>
+      <div class="genres" id="genres"></div>
+      <div id="ideaBox" hidden>
+        <label for="idea" class="hint" style="display:block;margin:0 0 6px">What should the story be about?</label>
+        <textarea id="idea" maxlength="300" placeholder="A girl named Alice and her best friend Bob, who happens to be a cat"></textarea>
+        <div class="count"><span id="ideaCount">0</span>/300</div>
+      </div>
+    </fieldset>
+
+    <p class="error" id="formError" role="alert"></p>
+    <div class="actions">
+      <button type="submit" class="primary" id="makeBtn">Make tonight's story</button>
+    </div>
+  </form>
+
+  <!-- 2. Progress -->
+  <section class="progress" id="progress" hidden aria-live="polite">
+    <div class="moon" aria-hidden="true"></div>
+    <h2 id="progressTitle">Writing your story…</h2>
+    <p id="progressHint">This usually takes 30–60 seconds.</p>
+    <p class="whisper" id="whisper">Fluffing the pillows…</p>
+  </section>
+
+  <!-- 3. The story -->
+  <article class="sheet story" id="story" hidden>
+    <div id="notes"></div>
+    <h2 id="storyTitle"></h2>
+    <p class="byline" id="byline"></p>
+    <div class="story-text" id="storyText"></div>
+    <p class="the-end">The End</p>
+    <p class="meta" id="meta"></p>
+
+    <section class="change">
+      <h3>Want to change something?</h3>
+      <div class="chips" id="quickChanges"></div>
+      <form class="change-row" id="changeForm" novalidate>
+        <label for="change" class="hint" style="position:absolute;left:-9999px">Your change</label>
+        <input type="text" id="change" maxlength="300" placeholder="e.g. add a friendly dragon">
+        <button type="submit" class="primary">Rewrite it</button>
+      </form>
+      <p class="error" id="changeError" role="alert"></p>
+      <div class="actions"><button type="button" class="secondary" id="newBtn">Make a new story</button></div>
+    </section>
+  </article>
+
+  <footer>Stories are written for ages 5–10 and checked for safety before you see them.</footer>
+</main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = { storyId: null, name: "" };
+
+  // ---------- starry sky ----------
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement("span");
+    s.className = "star";
+    s.style.left = Math.random() * 100 + "%";
+    s.style.top = Math.random() * 100 + "%";
+    s.style.opacity = (0.15 + Math.random() * 0.5).toFixed(2);
+    $("stars").appendChild(s);
+  }
+
+  // ---------- build the choices ----------
+  function choice(type, name, value, inner, cls) {
+    const label = document.createElement("label");
+    label.className = `choice ${cls}`;
+    const input = document.createElement("input");
+    input.type = type; input.name = name; input.value = value;
+    const span = document.createElement("span");
+    span.append(...inner);
+    label.append(input, span);
+    return label;
+  }
+  function el(tag, text) { const e = document.createElement(tag); e.textContent = text; return e; }
+
+  fetch("/api/options").then(r => r.json()).then(opts => {
+    for (let a = opts.minAge; a <= opts.maxAge; a++) {
+      $("ages").appendChild(choice("radio", "age", a, [String(a)], "age"));
+    }
+    for (const g of opts.genres) {
+      $("genres").appendChild(choice("radio", "genre", g.key, [el("b", g.name), el("small", g.blurb)], "genre"));
+    }
+    $("genres").querySelector("input").checked = true;          // "Surprise me" by default
+    $("genres").addEventListener("change", () => {
+      const custom = value("genre") === "custom";
+      $("ideaBox").hidden = !custom;
+      if (custom) $("idea").focus();
+    });
+  }).catch(() => showError("formError", "Couldn't reach the story server. Is app.py running?"));
+
+  $("idea").addEventListener("input", () => { $("ideaCount").textContent = $("idea").value.length; });
+  const value = (name) => (document.querySelector(`input[name=${name}]:checked`) || {}).value;
+
+  // ---------- views ----------
+  function show(view) {
+    for (const id of ["storyForm", "progress", "story"]) $(id).hidden = id !== view;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function showError(id, msg) { $(id).textContent = msg || ""; }
+
+  // ---------- talk to the server ----------
+  async function post(url, body) {
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+                                   body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Something went wrong.");
+    return data.job;
+  }
+  // While waiting, show a gentle line instead of the technical steps.
+  const WHISPERS = ["Fluffing the pillows…", "Dimming the lights…", "Finding the right words…",
+                    "Tucking in the characters…", "Checking it's just right for bedtime…",
+                    "Almost ready…"];
+  async function follow(job) {
+    let tick = 0;
+    $("whisper").textContent = WHISPERS[0];
+    while (true) {
+      await new Promise(r => setTimeout(r, 700));
+      if (++tick % 6 === 0) {                                     // about every 4 seconds
+        $("whisper").textContent = WHISPERS[Math.min(tick / 6, WHISPERS.length - 1)];
+      }
+      const res = await fetch(`/api/job/${job}`);
+      const data = await res.json();
+      if (data.status === "done") return data.result;
+      if (data.status === "error") throw new Error(data.error);
+    }
+  }
+
+  // ---------- make a story ----------
+  $("storyForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    showError("formError", "");
+    const body = { name: $("name").value.trim(), age: value("age"), genre: value("genre"),
+                   idea: $("idea").value.trim() };
+    if (!body.age) return showError("formError", "Please choose an age.");
+    if (body.genre === "custom" && !body.idea) return showError("formError", "Tell me what the story should be about.");
+    state.name = body.name;
+    $("makeBtn").disabled = true;
+    try {
+      const job = await post("/api/story", body);
+      $("progressTitle").textContent = body.name ? `Writing ${body.name}'s story…` : "Writing your story…";
+      $("progressHint").textContent = "This usually takes 30–60 seconds.";
+      show("progress");
+      renderStory(await follow(job));
+    } catch (err) {
+      show("storyForm");
+      showError("formError", err.message);
+    } finally {
+      $("makeBtn").disabled = false;
+    }
+  });
+
+  function renderStory(s) {
+    state.storyId = s.story_id;
+    $("notes").innerHTML = "";
+    for (const n of s.notes || []) {
+      const p = el("p", n.startsWith("I'll") ? n : `Softened for bedtime: ${n}`);
+      p.className = "note";
+      $("notes").appendChild(p);
+    }
+    $("storyTitle").textContent = s.title;
+    $("byline").textContent = state.name ? `For ${state.name} · ${s.genre}` : s.genre;
+    $("storyText").innerHTML = "";
+    s.pages.forEach((page, i) => {
+      if (i > 0) { const o = el("p", "✦ ✦ ✦"); o.className = "ornament"; o.setAttribute("aria-hidden", "true"); $("storyText").appendChild(o); }
+      for (const para of page.split(/\n+/).filter(t => t.trim())) $("storyText").appendChild(el("p", para));
+    });
+    $("meta").textContent = `Editor score ${s.score}/10 · ${s.words} words · ` +
+                            `${s.drafts} draft${s.drafts > 1 ? "s" : ""}`;
+    $("change").value = "";
+    showError("changeError", s.unchanged ? "I kept the story as it was - try describing a story change." : "");
+    show("story");
+  }
+
+  // ---------- change the story ----------
+  for (const text of ["Make it funnier", "Make it calmer", "Make it shorter", "Add a friendly dragon"]) {
+    const b = el("button", text); b.type = "button"; b.className = "chip";
+    b.addEventListener("click", () => { $("change").value = text; $("changeForm").requestSubmit(); });
+    $("quickChanges").appendChild(b);
+  }
+  $("changeForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const change = $("change").value.trim();
+    if (!change) return showError("changeError", "Type the change you'd like.");
+    try {
+      const job = await post("/api/change", { story_id: state.storyId, change });
+      $("progressTitle").textContent = "Rewriting the story…";
+      $("progressHint").textContent = "Usually 15–30 seconds.";
+      show("progress");
+      renderStory(await follow(job));
+    } catch (err) {
+      show("story");
+      showError("changeError", err.message);
+    }
+  });
+  $("newBtn").addEventListener("click", () => { state.storyId = null; show("storyForm"); });
+})();
+</script>
+</body>
+</html>

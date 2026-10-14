@@ -22,15 +22,15 @@ NARI_VOICE = os.getenv("NARI_VOICE", "shimmer")
 # --------------------------------------------------------------------------- #
 # Judge loop
 # --------------------------------------------------------------------------- #
-MAX_REVISIONS = 3          # judge -> revise rounds for a new story
-FEEDBACK_REVISIONS = 2     # judge -> revise rounds after a parent's change
-QUALITY_PASS = 8.5         # checklist score out of 10 needed to pass
-WORD_TOLERANCE = 0.15      # +/- 15% of the target word count
+MAX_REVISIONS = 1          # judge -> revise rounds for a new story
+FEEDBACK_REVISIONS = 1     # judge -> revise rounds after a parent's change
+QUALITY_PASS = 8.0         # checklist score out of 10 needed to pass
+WORD_TOLERANCE = 0.20      # +/- 20% of the target word count
 
 # Temperatures: creative writers run warm, judges run cold for consistency.
 TEMP_CLASSIFY = 0.0
 TEMP_PLAN = 0.7
-TEMP_WRITE = 0.8
+TEMP_WRITE = 0.9
 TEMP_REVISE = 0.6
 TEMP_JUDGE = 0.0
 
@@ -68,6 +68,8 @@ class AgeTier:
     tone: str
     nari_style: str
     banned_patterns: list[str] = field(default_factory=list)
+    vocabulary: str = ""            # plain-English guidance for the writer
+    max_hard_words: float = 0.05    # share of long (3+ syllable) words allowed
 
     def rules_text(self) -> str:
         return "\n".join(f"- {r}" for r in self.rules + UNIVERSAL_RULES)
@@ -85,7 +87,7 @@ TIERS = {
         label="ages 5-6 (strictest)",
         ages=(5, 6),
         pages=4,
-        max_avg_sentence=11,
+        max_avg_sentence=9,
         rules=[
             "No villains or 'bad guys' at all. If someone causes a problem, it is "
             "an accident and they make it right.",
@@ -111,13 +113,18 @@ TIERS = {
             r"nightmares?", r"strangers?", r"fight\w*", r"punch\w*", r"knives|knife",
             r"swords?", r"weapons?", r"wicked",
         ],
+        vocabulary="Use only very simple, everyday words a 5-year-old says themselves - like an early "
+                   "picture book. Mostly one- and two-syllable words. Say big not enormous, happy not "
+                   "delighted, shiny not glistening, quiet not tranquil, said not exclaimed. "
+                   "One idea per sentence.",
+        max_hard_words=0.03,
     ),
     "middle": AgeTier(
         key="middle",
         label="ages 7-8",
         ages=(7, 8),
         pages=5,
-        max_avg_sentence=14,
+        max_avg_sentence=12,
         rules=[
             "Mild problems and harmless mischief are fine, but nobody is hurt "
             "beyond a tiny bump that is quickly cared for.",
@@ -136,13 +143,16 @@ TIERS = {
             r"d(ie|ied|ies|ying|eath)", r"dead", r"nightmares?", r"knives|knife",
             r"weapons?", r"terrif\w*",
         ],
+        vocabulary="Use simple, everyday words a 7-year-old can read alone. Mostly short words; "
+                   "say big not enormous, glad not delighted, quiet not peaceful. No fancy words.",
+        max_hard_words=0.05,
     ),
     "big": AgeTier(
         key="big",
         label="ages 9-10",
         ages=(9, 10),
         pages=6,
-        max_avg_sentence=17,
+        max_avg_sentence=15,
         rules=[
             "Light suspense and gentle mysteries are fine; any peril is mild and "
             "resolved quickly.",
@@ -156,6 +166,9 @@ TIERS = {
                    "storyteller voice, expressive with light character voices, but "
                    "still calm and soothing - it is nearly sleep time.",
         banned_patterns=_ALWAYS_BANNED + [r"d(ied|ying|eath)", r"dead body"],
+        vocabulary="Use clear, everyday English a 9-year-old reads easily. At most one or two less "
+                   "common words, and make their meaning obvious from the story. No flowery language.",
+        max_hard_words=0.08,
     ),
 }
 
@@ -273,6 +286,21 @@ GENRES = {
 }
 
 GENRE_MENU = list(GENRES)          # index 0 -> menu option 1
+
+# One-line descriptions for the genre picker on the web page.
+GENRE_BLURBS = {
+    "fairy_tale": "Castles, kind royals, a little enchantment",
+    "magical": "Enchanted forests, wishes and gentle wizards",
+    "calming": "Slow, soft and sleepy - almost no conflict",
+    "good_manners": "Sharing, sorry and thank you, without preaching",
+    "healthy_habits": "Teeth, veggies and bedtime, made fun",
+    "animal_friends": "Cozy creatures with big personalities",
+    "adventure": "A gentle quest with maps and clever ideas",
+    "space_science": "Planets and dinosaurs, with real facts",
+    "funny": "Silly mix-ups and giggles",
+    "brave_hearts": "Facing a worry, like the dark or a new school",
+    "friendship": "Making friends and making up",
+}
 AUTO, CUSTOM = "auto", "custom"
 
 # Genres the "surprise me" Auto option draws from, per tier.

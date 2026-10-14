@@ -8,14 +8,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import textwrap
+import time
 from dataclasses import asdict
 from pathlib import Path
 
 from bedtime.config import AUTO, CUSTOM, GENRE_MENU, GENRES, MAX_AGE, MIN_AGE, QUALITY_PASS
 from bedtime.guard import InvalidName, clean_name
-from bedtime.llm import MissingAPIKey
+from bedtime.llm import APIUnavailable, LLMFormatError, MissingAPIKey
 from bedtime.models import Listener, Request, StoryBlocked, StoryResult, StoryUnsafe, slugify
 from bedtime.pipeline import apply_feedback, create_story
 
@@ -52,16 +54,32 @@ def ask_age(name: str) -> int:
         say(f"  Please enter a number from {MIN_AGE} to {MAX_AGE}.")
 
 
+SKIP_WORDS = {"skip", "no", "none", "nothing", "n/a", "na", "-", "nope", "pass"}
+
+
+def skippable(answer: str) -> str:
+    """Treat 'skip', 'no', 'none'... the same as pressing Enter."""
+    return "" if answer.strip().lower().rstrip(".!") in SKIP_WORDS else answer
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
 def genre_from_choice(choice: str) -> str:
-    """Menu number -> genre key ('auto', 'custom' or a GENRES key)."""
-    if choice in ("", "0"):
+    """Menu number or name -> genre key ('auto', 'custom' or a GENRES key).
+    Accepts "6", "animal friends", "Animal", "custom", "surprise me"..."""
+    choice = _norm(choice)
+    if choice in ("", "0", "auto", "surprise", "surprise me"):
         return AUTO
     if choice.isdigit() and 1 <= int(choice) <= len(GENRE_MENU):
         return GENRE_MENU[int(choice) - 1]
-    if choice == str(len(GENRE_MENU) + 1):
+    if choice == str(len(GENRE_MENU) + 1) or choice in ("custom", "my own idea", "own"):
         return CUSTOM
-    if choice in GENRES or choice in (AUTO, CUSTOM):
-        return choice
+    for key, genre in GENRES.items():
+        names = {_norm(key), _norm(genre.name)}
+        if choice in names or any(n.startswith(choice) for n in names if len(choice) >= 3):
+            return key
     raise ValueError(choice)
 
 
@@ -75,13 +93,13 @@ def ask_genre() -> str:
         try:
             return genre_from_choice(ask("> "))
         except ValueError:
-            say(f"  Please pick a number from 0 to {len(GENRE_MENU) + 1}.")
+            say(f"  Please pick a number from 0 to {len(GENRE_MENU) + 1}, or type a name like \"animal friends\".")
 
 
 def ask_name() -> str:
     while True:
         try:
-            return clean_name(ask("Who's listening tonight? (name, or Enter to skip) "))
+            return clean_name(skippable(ask("Who's listening tonight? (name, or Enter to skip) ")))
         except InvalidName as e:
             say(f"  {e}")
 
@@ -97,18 +115,12 @@ def gather_inputs(args) -> tuple[Listener, Request]:
     age = args.age or ask_age(name)
     genre = genre_from_choice(args.genre) if args.genre is not None else ask_genre()
 
-    idea = args.idea
-    if idea is None:
-        if genre == CUSTOM:
-            while not idea:
-                idea = ask("What should the story be about? ")
-        else:
-            idea = ask("Any character or detail to include? (Enter to skip) ")
-    today = args.today
-    if today is None:
-        who = name or "the listener"
-        today = ask(f"Anything from {who}'s day to weave in? (Enter to skip) ")
-    return Listener(age=age, name=name.strip(), today=today), Request(genre=genre, idea=idea)
+    # Only "Custom" needs a story idea; every other genre needs nothing more.
+    idea = args.idea or ""
+    if genre == CUSTOM:
+        while not idea:
+            idea = skippable(ask("What should the story be about? "))
+    return Listener(age=age, name=name.strip()), Request(genre=genre, idea=idea)
 
 
 # --------------------------------------------------------------------------- #
@@ -163,8 +175,13 @@ def save(result: StoryResult) -> Path:
     return folder
 
 
+_started = [0.0]
+
+
 def event(msg: str) -> None:
-    say(c("  ✓ ", "32") + c(msg, "2"))
+    """Progress line with seconds since the story started, so slow steps are visible."""
+    elapsed = time.monotonic() - _started[0]
+    say(c("  ✓ ", "32") + c(f"[{elapsed:>3.0f}s] {msg}", "2"))
 
 
 # --------------------------------------------------------------------------- #
@@ -175,8 +192,7 @@ def parse_args(argv=None):
     p.add_argument("--name", help="listener's name (they become the hero)")
     p.add_argument("--age", type=int, choices=range(MIN_AGE, MAX_AGE + 1), metavar="5-10")
     p.add_argument("--genre", help="menu number (0 auto, 1-11, 12 custom) or a genre key")
-    p.add_argument("--idea", help="story idea or details to include")
-    p.add_argument("--today", help="something from the child's day to weave in")
+    p.add_argument("--idea", help="story idea (for the Custom genre)")
     p.add_argument("--no-feedback", action="store_true", help="skip the change-request loop")
     p.add_argument("--storybook", action="store_true", help="build the animated book read by Nari")
     p.add_argument("--verbose", action="store_true", help="show the judge's full verdict")
@@ -189,10 +205,20 @@ def main(argv=None) -> int:
     listener, request = gather_inputs(args)
     say()
 
+    say(c("  Writing your story - this usually takes 30-60 seconds...", "2"))
+    _started[0] = time.monotonic()
     try:
         result = create_story(listener, request, on_event=event)
-    except MissingAPIKey as e:
-        say(c(str(e), "31"))
+    except (MissingAPIKey, APIUnavailable) as e:
+        say(c(f"\n{e}", "31"))
+        return 1
+    except ModuleNotFoundError as e:
+        say(c(f"Missing package '{e.name}'. Activate the project environment and install "
+              "requirements:\n  source .venv/bin/activate && pip install -r requirements.txt", "31"))
+        return 1
+    except LLMFormatError:
+        say(c("\nThe story model gave answers I couldn't read, even after retrying. "
+              "Please try again - it usually works on the next go.", "33"))
         return 1
     except StoryBlocked as e:
         say(c(f"\nThat idea isn't right for bedtime ({e}). Let's try a different one!", "33"))
@@ -209,6 +235,7 @@ def main(argv=None) -> int:
             change = ask("\nWant any changes? (e.g. \"make it funnier\") or Enter to finish: ")
             if not change:
                 break
+            _started[0] = time.monotonic()
             result, note = apply_feedback(result, change, on_event=event)
             if note:
                 say(c(f"  Note: {note}", "33"))
@@ -217,10 +244,7 @@ def main(argv=None) -> int:
     folder = save(result)
     say(c(f"\nSaved to {folder}", "2"))
 
-    want_book = args.storybook
-    if not want_book and sys.stdin.isatty() and not args.no_feedback:
-        want_book = ask("Open it as an animated storybook read by Nari? (y/N) ").lower().startswith("y")
-    if want_book:
+    if args.storybook:   # optional extra, off by default
         from bedtime.storybook import build_storybook
         build_storybook(result, folder, on_event=event, open_browser=True)
 

@@ -1,46 +1,31 @@
 digraph G {
-  graph [rankdir=TB, fontname="Helvetica", fontsize=13, nodesep=0.45, ranksep=0.42, pad=0.35, bgcolor="white", compound=true];
-  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12, penwidth=0.8, margin="0.18,0.08"];
+  graph [rankdir=TB, fontname="Helvetica", fontsize=13, nodesep=0.5, ranksep=0.45, pad=0.35, bgcolor="white"];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12, penwidth=0.8, margin="0.2,0.09"];
   edge  [fontname="Helvetica", fontsize=10, color="#5F5E5A", arrowsize=0.7];
 
-  user [label="Parent + child\nname · age 5-10 · genre menu (0 auto, 1-11, 12 custom)\nidea · \"today I...\" moment", fillcolor="#F1EFE8", color="#5F5E5A"];
+  user [label="Parent on the web page\nname · age 5-10 · genre (Surprise me, 11 genres, My own idea)", fillcolor="#F1EFE8", color="#5F5E5A"];
+  guard [label="Input guard (code)\nclean text · valid name · injection check", fillcolor="#E1F5EE", color="#0F6E56"];
+  classify [label="Classifier + safety gate  (only for \"My own idea\")\nsoften / block · genre · must-include", fillcolor="#E1F5EE", color="#0F6E56"];
+  plan  [label="Planner\nbeats → pages (layout decided in code)\ncharacters · signature detail · breathing game", fillcolor="#EEEDFE", color="#534AB7"];
+  write [label="Storyteller  (temp 0.8)\nage tone · 400-800 words", fillcolor="#EEEDFE", color="#534AB7"];
 
-  subgraph cluster_core {
-    label="CORE  ·  gpt-3.5-turbo only"; fontcolor="#3C3489"; style="rounded,dashed"; color="#7F77DD";
-    kw       [label="Keyword screen (code)\nbanned words per age tier", fillcolor="#E1F5EE", color="#0F6E56"];
-    classify [label="1. Classifier + safety gate\ngenre · soften / block · must-include", fillcolor="#E1F5EE", color="#0F6E56"];
-    plan     [label="2. Planner\narc beats → 4/5/6 pages · characters\nsignature detail · breathing game", fillcolor="#EEEDFE", color="#534AB7"];
-    write    [label="3. Storyteller  (temp 0.8)\nage tone · 400-800 words", fillcolor="#EEEDFE", color="#534AB7"];
-
-    subgraph cluster_judge {
-      label="4. Judge"; fontcolor="#085041"; style="rounded"; color="#1D9E75";
-      code    [label="Code checks\nwords · pages · names\nmoral · sentence length", fillcolor="#E1F5EE", color="#0F6E56"];
-      safety  [label="Safety judge (temp 0)\nage rules · imitable\nbehaviour — VETO", fillcolor="#E1F5EE", color="#0F6E56"];
-      quality [label="Quality judge (temp 0)\n12-14 yes/no checklist\n→ score in code", fillcolor="#E1F5EE", color="#0F6E56"];
-    }
-    decide  [label="Pass?\nsafe AND no code issues AND score ≥ 8.5\n(regression guard keeps best draft)", shape=diamond, style="filled", fillcolor="#FAEEDA", color="#854F0B", fontsize=11];
-    revise  [label="5. Reviser\nsafety → requirements → notes\nmax 3 rounds", fillcolor="#EEEDFE", color="#534AB7"];
-    show    [label="Story in terminal", fillcolor="#F1EFE8", color="#5F5E5A"];
-    fb      [label="Feedback screen\nsoften unsafe asks · adjust length", fillcolor="#E1F5EE", color="#0F6E56"];
+  subgraph cluster_judge {
+    label="Judge"; fontcolor="#085041"; style="rounded"; color="#1D9E75";
+    code  [label="Code checks (free)\nwords · pages · name\nbanned words · moral", fillcolor="#E1F5EE", color="#0F6E56"];
+    llmj  [label="One LLM judge call (temp 0)\nsafety issues (veto)\n+ yes/no checklist → score in code", fillcolor="#E1F5EE", color="#0F6E56"];
   }
+  decide [label="Pass?\nsafe AND no code issues AND score ≥ 8", shape=diamond, style="filled", fillcolor="#FAEEDA", color="#854F0B", fontsize=11];
+  revise [label="Reviser\nsafety → requirements → notes\nat most 1 round · keeps best draft", fillcolor="#EEEDFE", color="#534AB7"];
+  show   [label="Story on the web page", fillcolor="#F1EFE8", color="#5F5E5A"];
 
-  subgraph cluster_book {
-    label="SURPRISE  ·  optional storybook"; fontcolor="#712B13"; style="rounded,dashed"; color="#D85A30";
-    scenes [label="Art director (gpt-3.5)\nscene per page + character sheet", fillcolor="#EEEDFE", color="#534AB7"];
-    voice  [label="Voice director (gpt-3.5)\nmood · expressive lines", fillcolor="#EEEDFE", color="#534AB7"];
-    img    [label="Illustrator\nimage model", fillcolor="#FAECE7", color="#993C1D"];
-    nari   [label="Nari\nTTS model, soothing by age", fillcolor="#FAECE7", color="#993C1D"];
-    player [label="Storybook player (HTML)\nbook opens · moving art · read-along · night-light", fillcolor="#F1EFE8", color="#5F5E5A"];
-  }
-
-  user -> kw -> classify -> plan -> write -> code;
-  write -> safety; write -> quality;
-  code -> decide; safety -> decide; quality -> decide;
-  decide -> revise [label=" no"];
-  revise -> code [style=dashed, label=" re-judge"];
+  user -> guard;
+  guard -> classify [label=" own idea"];
+  guard -> plan [label=" genre picked\n (no screening call)"];
+  classify -> plan -> write;
+  write -> code; write -> llmj;
+  code -> decide; llmj -> decide;
   decide -> show [label=" yes"];
-  show -> fb [label=" parent asks\n for a change"];
-  fb -> revise;
-  show -> scenes [label=" done"]; show -> voice;
-  scenes -> img; voice -> nari; img -> player; nari -> player;
+  decide -> revise [label=" no"];
+  revise -> code [style=dashed, label=" judge again"];
+  show -> revise [label=" \"make it funnier\"\n (guarded, then judged again)"];
 }

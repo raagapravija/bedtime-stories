@@ -21,6 +21,62 @@ PREACHY = [
 ]
 
 
+# Long words children know well - not counted as "hard".
+EASY_LONG_WORDS = {
+    "everyone", "everything", "everybody", "family", "together", "tomorrow", "beautiful",
+    "butterfly", "butterflies", "elephant", "dinosaur", "banana", "chocolate", "another",
+    "animal", "animals", "wonderful", "yesterday", "umbrella", "kangaroo", "crocodile", "potato",
+    "tomato", "octopus", "grandmother", "grandfather", "grandma", "grandpa", "telephone",
+    "computer", "already", "remember", "idea", "ideas", "magical", "favourite", "favorite",
+    "adventure", "important", "different", "lemonade", "caterpillar", "strawberry",
+    "blueberry", "pyjamas", "pajamas", "bicycle", "library", "nobody", "somebody", "anything",
+    "something", "everywhere", "hospital", "music", "violin", "piano", "gorilla", "giraffe",
+    "hippo", "hippopotamus", "alligator", "spaghetti", "teddy", "kitten", "puppy", "bumblebee",
+    "honeybee", "ladybug", "ladybird", "dandelion", "moonlight", "sunflower", "firefly",
+    "fireflies", "grasshopper", "astronaut", "planet", "planets", "rocket", "galaxy", "family",
+    "holiday", "birthday", "carrots", "vegetables", "whispering", "tiptoe", "tiptoed",
+}
+
+
+# Flowery words gpt-3.5 loves that are short but still too fancy for young children.
+FANCY_WORDS = {
+    "tranquil", "serene", "gleaming", "glistening", "glistened", "shimmering", "shimmered",
+    "cascading", "ethereal", "whimsical", "majestic", "radiant", "luminous", "murmured",
+    "exclaimed", "beckoned", "gazed", "wondrous", "embraced", "embrace", "lush", "verdant",
+    "melodious", "resplendent", "azure", "twilight", "nestled", "bustling", "vibrant",
+    "enchanted", "enchanting", "mesmerized", "awestruck", "solace", "reverie", "slumber",
+}
+
+
+def syllables(word: str) -> int:
+    """A rough syllable count - good enough to spot long words."""
+    w = re.sub(r"[^a-z]", "", word.lower())
+    if not w:
+        return 0
+    for suffix in ("ing", "ed", "ly", "es", "s"):     # count the stem: "whispering" -> "whisper"
+        if w.endswith(suffix) and len(w) - len(suffix) >= 3:
+            if suffix == "ed" and w[-3] in "td":       # "-ted"/"-ded" is its own syllable
+                break
+            w = w[: -len(suffix)]
+            break
+    groups = re.findall(r"[aeiouy]+", w)
+    count = len(groups)
+    if w.endswith("e") and not w.endswith(("le", "ee")) and count > 1:
+        count -= 1                                    # silent e: "stone", "smile"
+    return max(1, count)
+
+
+def hard_words(text: str) -> tuple[list[str], float]:
+    """Words of 3+ syllables, skipping capitalised words (names, sentence starts)
+    and long words that children know well. Returns (unique hard words, share)."""
+    words = re.findall(r"[A-Za-z']+", text)
+    hard = [w for w in words
+            if not w[0].isupper() and w.lower() not in EASY_LONG_WORDS
+            and (syllables(w) >= 3 or w.lower() in FANCY_WORDS)]
+    unique = list(dict.fromkeys(w.lower() for w in hard))
+    return unique, (len(hard) / len(words) if words else 0.0)
+
+
 def keyword_hits(text: str, tier: AgeTier) -> list[str]:
     """Banned words for this age tier, matched on whole words only."""
     hits = []
@@ -80,6 +136,17 @@ def code_checks(brief: Brief, story: Story) -> tuple[list[str], list[str]]:
         if m:
             issues.append(f'Remove the stated moral ("{m.group(0)}..."); show it through what happens instead.')
             break
+
+    from .prompts import CLICHES
+    found = [c for c in CLICHES if re.search(rf"\b{re.escape(c)}", text, re.IGNORECASE)]
+    if found:
+        issues.append(f"Replace these tired, machine-sounding phrases with simple, specific words: "
+                      f"{', '.join(found)}.")
+
+    hard, share = hard_words(text)
+    if share > brief.tier.max_hard_words:
+        issues.append(f"The words are too hard for a {brief.listener.age}-year-old. Swap these for "
+                      f"short, everyday words: {', '.join(hard[:10])}.")
 
     lengths = sentence_lengths(text)
     if lengths:
