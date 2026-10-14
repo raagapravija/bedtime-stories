@@ -375,10 +375,10 @@ def test_machine_sounding_phrases_are_caught_in_code():
 def test_writer_gets_a_voice_sample_for_the_right_age():
     llm = good_llm()
     create_story(listener(age=5), Request("calming", ""), llm=llm)
-    assert "Mumma, look! What is that?" in llm.prompts_for("write")[0]   # simple, chatty sample
+    assert "Socks don't go missing at bedtime" in llm.prompts_for("write")[0]   # nothing scary for 5-6
     llm = good_llm()
     create_story(listener(age=9), Request("calming", ""), llm=llm)
-    assert "Puddle Lane" in llm.prompts_for("write")[0]             # older sample
+    assert "messy toys under messy beds" in llm.prompts_for("write")[0]       # 7-10 sample
 
 
 # ----------------------------------------------------------------- length ---
@@ -461,3 +461,41 @@ def test_simplifier_result_is_dropped_if_it_is_not_simpler():
     llm = good_llm(write=fancy, simplify=fancy, revise=make_story())
     result = create_story(listener(age=5), Request("calming", ""), llm=llm)
     assert result.history[0].story.text == parse_story(fancy).text   # kept the original draft
+
+
+# ------------------------------------------- a real gpt-3.5 story (sample) ---
+from pathlib import Path  # noqa: E402
+
+REAL = Path(__file__).parent / "samples" / "real_gpt35_story.txt"
+
+
+def test_real_gpt35_habits_are_caught_even_for_older_children():
+    from bedtime.checks import readability_problems
+    story = parse_story(REAL.read_text())
+    brief = Brief(listener=listener(age=9, name="Aria"), genre=GENRES["magical"], story_request="x")
+    problems = readability_problems(brief, story)
+    assert any("sounds artificial" in p and "her voice" in p for p in problems)
+    assert any("skip the best part" in p and "After solving the riddle" in p for p in problems)
+
+
+def test_our_own_voice_samples_pass_the_habit_check():
+    from bedtime.checks import habit_hits
+    for sample in prompts.VOICE_SAMPLES.values():
+        assert habit_hits(sample) == [], sample[:40]
+
+
+def test_real_story_goes_through_the_simplifier():
+    # the expander makes no progress here, so the simplifier gets the original
+    llm = good_llm(write=REAL.read_text(), expand=REAL.read_text(),
+                   simplify=make_story(pages=6, words_per_page=120))
+    create_story(listener(age=9, name="Aria"), Request("magical", ""), llm=llm)
+    prompt = llm.prompts_for("simplify")[0]
+    assert "write only 'said' or 'asked'" in prompt and "BAD:" in prompt
+
+
+def test_voice_samples_follow_their_own_age_rules():
+    from bedtime.checks import readability_problems
+    for age, key in ((5, "little"), (8, "older"), (10, "older")):
+        brief = Brief(listener=listener(age=age, name=""), genre=GENRES["calming"], story_request="x")
+        sample = parse_story("TITLE: x\n=== PAGE 1 ===\n" + prompts.VOICE_SAMPLES[key])
+        assert readability_problems(brief, sample) == [], (age, key)

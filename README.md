@@ -36,7 +36,7 @@ There's also a terminal version: `python main.py` (or `python main.py --name Mia
 | **Storyteller** | 1 | Writes the story. The prompt opens with four rules: simple words, short sentences, lots of child-like talking ("Mumma, look! What is that?"), no fancy descriptions. It then shows a short original sample passage to imitate (very simple and chatty for ages 5–8, a little wittier for 9–10). |
 | **Simplifier** | 0–1 | GPT-3.5 drifts into grown-up words and long descriptions. If code finds too many hard words, long sentences or too little talking, one focused "rewrite this in very simple English" call fixes it, with the exact words to swap. It keeps the same story and length, and the rewrite is kept only if it really is simpler. |
 | **Lengthener** | 0–2 | GPT-3.5 often writes far less than asked (for example 170 words instead of 720). If a draft is under 80% of the target, a focused "lengthen each page" call adds small moments, dialogue and details without changing the plot, before the judge sees it. |
-| **Judge** | 1 | **Code checks** (free): word count (±20%), pages, the listener's name, banned words for the age, stated morals, sentence length, **hard words** (3+ syllables or flowery words like "tranquil", ignoring names and kid words like "elephant"; at most 3% for ages 5–6, 5% for 7–8, 8% for 9–10), too little talking (at least 30% of the words in dialogue for ages 5–6, 25% for 7–8, 15% for 9–10), and machine-sounding clichés ("embark", "vibrant", "heart filled with joy"…). **One LLM call** returns safety issues *and* a 12–13 question yes/no checklist. **Code** computes the score and makes the pass/fail decision. |
+| **Judge** | 1 | **Code checks** (free): word count (±20%), pages, the listener's name, banned words for the age, stated morals, sentence length, **hard words** (3+ syllables or flowery words like "tranquil", ignoring names and kid words like "elephant"; at most 3% for ages 5–6, 5% for 7–8, 8% for 9–10), gpt-3.5's tell-tale habits at every age (add-ons after speech like *", her eyes shining with curiosity"*, named feelings, *exclaimed/instructed*, and skipping the big moment with *"After solving the riddle…"*; a real gpt-3.5 story is kept in `tests/samples/` as a test case), too little talking (at least 30% of the words in dialogue for ages 5–6, 25% for 7–8, 15% for 9–10), and machine-sounding clichés ("embark", "vibrant", "heart filled with joy"…). **One LLM call** returns safety issues *and* a 12–13 question yes/no checklist. **Code** computes the score and makes the pass/fail decision. |
 | **Reviser** | 0–2 | Only runs if the draft fails: fixes safety issues first, then requirements, then the editor's notes. **At most one round**, and the better of the two drafts is kept. |
 
 **A story passes** only if all three hold: no safety issues, no code issues, and a checklist score of at least 8/10. Any safety issue fails the draft, however good it is otherwise. A story that is never judged safe is not shown.
@@ -69,7 +69,7 @@ There's also a terminal version: `python main.py` (or `python main.py --name Mia
 ## Tests and evaluation
 
 ```bash
-pytest -q                     # 50 offline tests; a fake model stands in for gpt-3.5
+pytest -q                     # 53 offline tests; a fake model stands in for gpt-3.5
 python -m evals.run_evals     # baseline (raw skeleton prompt) vs this system, same judge
 ```
 

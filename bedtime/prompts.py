@@ -168,7 +168,7 @@ Content rules for this age:
 {brief.tier.rules_text()}
 
 Write the plan in simple words too - the writer will copy your words.
-Think small. The best bedtime stories are about small, real things - a lost sock, a shy snail, a moon that is too bright to sleep under. One small problem in a cozy world, solved gently. No quests to save kingdoms, no "magical adventures".
+Think small and real. A great start is often a real bedtime moment - a child who can't sleep, a worry, a wish, a funny question to a parent - that grows into a small, funny or magical surprise. The best bedtime stories are about small, real things - a lost sock, a shy snail, a moon that is too bright to sleep under. One small problem in a cozy world, solved gently. No quests to save kingdoms, no "magical adventures".
 Make it special: no cliches like "there was a little girl who loved...". The signature detail (a curious object, a funny habit, a magical sound) must be how the problem gets solved.
 
 Return JSON. The "pages" list must have exactly these {brief.pages} entries - fill in each summary, do not add or remove pages:
@@ -196,25 +196,32 @@ You never sound like a computer, a lesson or a grown-up novel.""" + GUARD
 # Short ORIGINAL passages that show the voice. gpt-3.5 imitates an example far
 # better than it follows a description of one.
 VOICE_SAMPLES = {
-    # ages 5-8: very simple words, lots of child-like talking
-    "little": """Tia pressed her nose to the window.
-"Mumma, look! What is that?"
-"That is the moon," said Mumma.
-"Why is it so big tonight?"
-"Maybe it came to say goodnight to you."
-Tia waved. "Hi, moon! Hi!"
-The moon did not wave back. But Tia was sure it smiled.
-"Can the moon sleep in my room?" she asked.
-Mumma laughed. "It is too big, silly. But it can shine on your bed."
-And it did. Soft and white, like a warm blanket.""",
-    # ages 9-10: still plain words, a little more wit
-    "older": """Nobody on Puddle Lane knew why the old cat sat on the post office roof every evening at six o'clock. Theo had a guess. Theo always had a guess.
-"She's waiting for a letter," he told his sister.
-"Cats don't get letters," said June. She was nine, so she knew everything.
-"Then what is she doing up there?"
-June didn't know. She hated not knowing.
-That night, when the first star came out, the cat stood up. She stretched one long stretch. Then she looked right at Theo's window.""",
+    # ages 5-6: same telling style, nothing scary at all
+    "little": """"One more story, please?" said Ben. "Just one."
+"One," said Mum. "A tiny one."
+Ben pulled the blanket up to his nose. "My sock is missing," he said.
+"Socks don't go missing at bedtime," said Mum.
+"This one did."
+They looked under the pillow. No sock. They looked in the toy box. No sock.
+Then Tibbs the cat walked in. She had the sock on her tail.
+"Tibbs!" Ben laughed. "That's my sock!"
+Tibbs did not give it back. She curled up at the end of the bed and went to sleep on it.""",
+    # ages 7-10: based on the style the product owner asked for
+    "older": """"Read me another story, please?" Jay looked up at his dad. "There's a monster under my bed. I can't sleep."
+"There are no monsters," Dad laughed. "The only thing under your bed is too many toys."
+But he agreed to one very, very short story.
+Jay was happy. But very quietly, he mumbled, "There might be a monster..."
+He stuck his head under the bed. It really was a bit messy. He stared hard. He couldn't see anything in the dark.
+But he heard a small voice say, "I'm not a monster. I just like playing with messy toys under messy beds."
+""",
 }
+
+VOICE_NOTES = """What makes it sound like a real bedtime story:
+- It starts in a real moment - often bedtime itself: a child, a grown-up, a worry or a wish.
+- The child and the grown-up talk back and forth like a real family, with little jokes and teasing.
+- Kid logic: the child believes something the grown-up doesn't, and the story quietly takes the child's side.
+- Plain, casual telling, like someone saying it out loud ("It really was a bit messy.").
+- A small, funny surprise - not a big magical adventure."""
 
 # Phrases that make a story sound machine-written. Checked in code, too.
 CLICHES = [
@@ -235,7 +242,8 @@ TITLE: <title>
 
 
 def _sample_for(tier) -> str:
-    return VOICE_SAMPLES["older" if tier.key == "big" else "little"]
+    # Ages 5-6 get a sample with nothing scary in it; 7-10 get the monster-under-the-bed one.
+    return VOICE_SAMPLES["little" if tier.key == "little" else "older"]
 
 
 def _simple_rules(brief) -> str:
@@ -244,7 +252,11 @@ def _simple_rules(brief) -> str:
     return f"""1. SIMPLE WORDS. {tier.vocabulary}
 2. SHORT SENTENCES. Average under {tier.max_avg_sentence} words. Many sentences are only 3-6 words.
 3. LOTS OF TALKING. At least a third of every page is the characters talking, in short, real, child-like lines: questions, pointing things out, little jokes. Like: "Mumma, look! What is that?" / "Can I hold it?" / "Shh, it's sleeping."
-4. NO FANCY DESCRIPTIONS. Say what happens and what people say. One simple detail is better than three fancy ones."""
+4. NO FANCY DESCRIPTIONS. Say what happens and what people say. One simple detail is better than three fancy ones.
+5. "SAID" AND STOP. After someone speaks, write "said" or "asked" and end the sentence. No add-ons, and never name feelings like wonder, curiosity or excitement - show them with one small action.
+   BAD:  "Can I go?" she asked eagerly, her eyes shining with curiosity.
+   GOOD: "Can I go?" asked Aria. She was already putting on her slippers.
+6. SHOW THE BIG MOMENT. Never skip past it ("After solving the riddle..."). Let it happen on the page, with talking."""
 
 
 def storyteller_prompt(brief, plan: dict) -> str:
@@ -256,10 +268,11 @@ def storyteller_prompt(brief, plan: dict) -> str:
 THE MOST IMPORTANT RULES:
 {_simple_rules(brief)}
 
-Here is the voice to copy. Copy how simple it is and how the characters talk - NOT its names, places or plot:
+Here is the voice to copy. Copy how it is told and how the characters talk - NOT its names, places or plot:
 ---
 {_sample_for(tier)}
 ---
+{VOICE_NOTES}
 
 <story_plan>
 {json.dumps(plan, indent=2)}
@@ -323,10 +336,11 @@ What is wrong now:
 RULES:
 {_simple_rules(brief)}
 
-Here is how simple it should sound (copy the style, not the story):
+Here is how it should sound (copy the style, not the story):
 ---
 {_sample_for(brief.tier)}
 ---
+{VOICE_NOTES}
 
 Keep the same plot, names, pages and ending, and the breathing game on the last page. Keep about {per_page} words on every page: when you remove a fancy description, put a simple line of talking or a simple action in its place.
 

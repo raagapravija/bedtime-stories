@@ -35,7 +35,42 @@ EASY_LONG_WORDS = {
     "honeybee", "ladybug", "ladybird", "dandelion", "moonlight", "sunflower", "firefly",
     "fireflies", "grasshopper", "astronaut", "planet", "planets", "rocket", "galaxy", "family",
     "holiday", "birthday", "carrots", "vegetables", "whispering", "tiptoe", "tiptoed",
+    "understand", "peaceful", "careful", "carefully", "beautiful", "colourful", "colorful",
+    "breakfast", "goodnight", "pillow", "blanket", "whisper", "whispered",
 }
+
+# gpt-3.5's tell-tale habits, found in real output. They make a story sound
+# artificial and grown-up at ANY age, so they are checked for every listener.
+HABITS = [
+    # an add-on after speech: ', her eyes wide with wonder' / ', her voice gentle and inviting'
+    (r",\s+(?:her|his|their|its)\s+(?:eyes|voice|heart|face|cheeks|smile)\b[^.!?\"\u201d]{0,40}",
+     "add-ons after speech"),
+    (r",\s+(?:eyes|voice)\s+(?:still\s+)?\w+\s+(?:with|on|of)\b[^.!?\"\u201d]{0,30}", "add-ons after speech"),
+    # naming feelings instead of showing them
+    (r"\b(?:with|of|in)\s+(?:wonder|curiosity|excitement|delight|joy|happiness|warmth|awe|love)\b",
+     "named feelings"),
+    (r"\b(?:her|his|their)\s+curiosity\b", "named feelings"),
+    (r",\s+feeling\s+\w+(?:\s+and\s+\w+)?", "', feeling ...' tails"),
+    (r"\beyes\s+(?:wide|shining|sparkling|sparkled|glowing|twinkling)\b", "named feelings"),
+    # fancy speech words - picture books use 'said' and 'asked'
+    (r"\b(?:exclaimed|instructed|explained|replied|remarked|declared|inquired|wondered aloud)\b",
+     "fancy speech words"),
+    (r"\b(?:said|asked|whispered)\s+(?:eagerly|excitedly|happily|softly|gently|sweetly|warmly)\b",
+     "fancy speech words"),
+]
+
+# Jumping past the best part: 'After solving the riddle and finding her way home...'
+SKIPPED_MOMENT = r"\bafter\s+(?:solving|finding|fixing|helping|saving|winning|discovering)\b[^.!?]*"
+
+
+def habit_hits(text: str) -> list[str]:
+    """Every add-on, named feeling or fancy speech word, as the exact words found."""
+    spans = []
+    for pattern, _label in HABITS:
+        for m in re.finditer(pattern, text, re.IGNORECASE):
+            if not any(m.start() < e and s < m.end() for s, e in spans):   # skip overlaps
+                spans.append((m.start(), m.end()))
+    return [text[s:e].strip(" ,") for s, e in sorted(spans)]
 
 
 # Flowery words gpt-3.5 loves that are short but still too fancy for young children.
@@ -69,7 +104,8 @@ def syllables(word: str) -> int:
 def hard_words(text: str) -> tuple[list[str], float]:
     """Words of 3+ syllables, skipping capitalised words (names, sentence starts)
     and long words that children know well. Returns (unique hard words, share)."""
-    words = re.findall(r"[A-Za-z']+", text)
+    words = [w.strip("'") for w in re.findall(r"[A-Za-z']+", text)]
+    words = [w for w in words if w]
     hard = [w for w in words
             if not w[0].isupper() and w.lower() not in EASY_LONG_WORDS
             and (syllables(w) >= 3 or w.lower() in FANCY_WORDS)]
@@ -97,6 +133,20 @@ def readability_problems(brief: Brief, story: Story) -> list[str]:
     if lengths and sum(lengths) / len(lengths) > tier.max_avg_sentence:
         problems.append(f"Sentences average {sum(lengths) / len(lengths):.0f} words; keep them under "
                         f"{tier.max_avg_sentence} for a {age}-year-old.")
+    habits = habit_hits(text)
+    allowed = max(2, story.word_count // 200)          # an occasional one is fine
+    if len(habits) > allowed:
+        # the longest ones are the clearest examples for the rewriter
+        examples = "; ".join(f'"{h}"' for h in sorted(set(habits), key=len, reverse=True)[:6])
+        problems.append(
+            f"It sounds artificial: {len(habits)} add-ons and named feelings like {examples}. "
+            "After speech, write only 'said' or 'asked' and stop. Never name a feeling "
+            "(wonder, curiosity, excitement) - show it with one small action instead.")
+    skipped = re.search(SKIPPED_MOMENT, text, re.IGNORECASE)
+    if skipped:
+        problems.append(f'Don\'t skip the best part ("{skipped.group(0).strip()}"). '
+                        "Show that moment as it happens, with talking.")
+
     talk = dialogue_share(text)
     if talk < tier.min_dialogue:
         problems.append(f"The characters hardly talk ({talk:.0%} of the words). Add short, child-like "
