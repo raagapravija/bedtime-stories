@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Grandstander:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --night: #1e1b3a;        /* the bedroom */
+    --night-deep: #110f24;
+    --plum: #3b2559;         /* book cloth */
+    --plum-edge: #2a1942;
+    --gold: #f2c46d;         /* moon foil */
+    --paper: #faf0dc;
+    --paper-shade: #eedfc2;
+    --ink: #3a2e4d;          /* plum ink, softer than black */
+    --glow: rgba(242, 196, 109, .38);
+    --page-w: min(46vw, 470px);
+    --page-h: calc(var(--page-w) * 1.28);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 30%, var(--night) 0%, var(--night-deep) 75%);
+    color: var(--ink);
+    font-family: "Andika", "Avenir Next", "Trebuchet MS", sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; overflow: hidden;
+  }
+  /* ------- starry room ------- */
+  .stars { position: fixed; inset: 0; pointer-events: none; }
+  .star { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff8e1; opacity: .5; }
+  @media (prefers-reduced-motion: no-preference) {
+    .star.tw { animation: twinkle 4s ease-in-out infinite; }
+  }
+  @keyframes twinkle { 50% { opacity: .1; } }
+
+  /* ------- the book ------- */
+  .stage { perspective: 2200px; }
+  .book {
+    position: relative; width: calc(var(--page-w) * 2); height: var(--page-h);
+    transform-style: preserve-3d; transition: transform 1.4s cubic-bezier(.6,.05,.25,1);
+  }
+  .book.closed { transform: translateX(calc(var(--page-w) * -0.5)); }
+  .page {
+    position: absolute; top: 0; width: var(--page-w); height: 100%;
+    background: var(--paper); overflow: hidden;
+  }
+  .page.left { left: 0; border-radius: 14px 0 0 14px;
+    box-shadow: inset -18px 0 28px -18px rgba(58,46,77,.35); }
+  .page.right { right: 0; border-radius: 0 14px 14px 0;
+    box-shadow: inset 18px 0 28px -18px rgba(58,46,77,.35);
+    padding: 9% 9% 12%; display: flex; flex-direction: column; }
+  .book.closed .page.left { visibility: hidden; }
+
+  /* picture page */
+  .art { position: absolute; inset: 6%; border-radius: 10px; overflow: hidden;
+    background: radial-gradient(circle at 70% 25%, #ffe9b0 0 6%, transparent 7%),
+                linear-gradient(160deg, #6d5aa8, #2f2a63 70%); }
+  .art img { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: 50% 50%; }
+  .art canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .art img.kb-a { animation: kbA 26s ease-in-out forwards; }
+    .art img.kb-b { animation: kbB 26s ease-in-out forwards; }
+  }
+  @keyframes kbA { from { transform: scale(1.02) translate(0,0); } to { transform: scale(1.14) translate(-3%, -2%); } }
+  @keyframes kbB { from { transform: scale(1.14) translate(3%, 2%); } to { transform: scale(1.03) translate(0,0); } }
+
+  /* words page */
+  .words { flex: 1; overflow-y: auto; font-size: clamp(17px, 1.55vw, 21px); line-height: 1.75; }
+  .words p { margin: 0 0 .9em; }
+  .s { border-radius: 6px; padding: 0 .08em; transition: background-color .5s, color .5s; }
+  .s.now { background: var(--glow); }
+  .s.read { color: #6f6380; }
+  .folio { position: absolute; bottom: 4.5%; left: 0; right: 0; text-align: center;
+    font-family: "Grandstander", "Chalkboard SE", "Comic Neue", "Trebuchet MS", sans-serif; font-size: 14px; color: #a1937f; }
+
+  /* breathing circle on the last page */
+  .breathe { display: none; align-items: center; gap: 14px; margin-top: 4px; color: #7b6d8f; font-size: 15px; }
+  .breathe.on { display: flex; }
+  .breathe i { width: 34px; height: 34px; border-radius: 50%; background: var(--glow); border: 2px solid var(--gold); }
+  @media (prefers-reduced-motion: no-preference) {
+    .breathe i { animation: breathe 8s ease-in-out infinite; }
+  }
+  @keyframes breathe { 0%,100% { transform: scale(.7); } 50% { transform: scale(1.25); } }
+
+  /* the cover: hinged on the spine */
+  .cover {
+    position: absolute; top: 0; right: 0; width: var(--page-w); height: 100%;
+    transform-origin: left center; transform-style: preserve-3d;
+    transition: transform 1.6s cubic-bezier(.6,.05,.25,1); z-index: 5;
+  }
+  .cover .front, .cover .back { position: absolute; inset: 0; backface-visibility: hidden; border-radius: 0 14px 14px 0; }
+  .cover .front {
+    background: radial-gradient(circle at 30% 20%, #4c3272, var(--plum) 60%, var(--plum-edge));
+    box-shadow: 0 30px 60px rgba(0,0,0,.45), inset 10px 0 0 var(--plum-edge);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 12%; color: var(--gold);
+  }
+  .cover .back { background: var(--paper-shade); transform: rotateY(180deg); border-radius: 14px 0 0 14px; }
+  .book.open .cover { transform: rotateY(-180deg); pointer-events: none; }
+  .moon { width: 34%; aspect-ratio: 1; border-radius: 50%; margin-bottom: 9%;
+    box-shadow: inset -22px 10px 0 0 var(--gold); transform: rotate(-20deg); }
+  .cover h1 { font-family: "Grandstander", "Chalkboard SE", "Comic Neue", "Trebuchet MS", sans-serif; font-weight: 700; margin: 0 0 .5em;
+    font-size: clamp(24px, 3.3vw, 40px); line-height: 1.15; }
+  .cover .for { font-size: 17px; color: #e9d7b0; margin: 0 0 12%; }
+  .start {
+    font: 700 18px "Grandstander", "Chalkboard SE", "Comic Neue", "Trebuchet MS", sans-serif; color: var(--plum-edge); background: var(--gold);
+    border: 0; border-radius: 999px; padding: 14px 30px; cursor: pointer;
+  }
+  .start:focus-visible, .ctl:focus-visible { outline: 3px solid #fff3cf; outline-offset: 3px; }
+
+  /* page turn: a paper leaf swinging over the spine */
+  .leaf { position: absolute; top: 0; right: 0; width: var(--page-w); height: 100%;
+    background: linear-gradient(90deg, var(--paper-shade), var(--paper)); border-radius: 0 14px 14px 0;
+    transform-origin: left center; z-index: 4; visibility: hidden; }
+  .leaf.turn { visibility: visible; animation: turn 1s ease-in-out forwards; }
+  @keyframes turn { from { transform: perspective(3600px) rotateY(0); } to { transform: perspective(3600px) rotateY(-180deg); } }
+
+  /* controls */
+  .controls { margin-top: 26px; display: flex; gap: 14px; opacity: 0; transition: opacity 1s; z-index: 10; }
+  .controls.on { opacity: 1; }
+  .ctl { width: 46px; height: 46px; border-radius: 50%; border: 1.5px solid rgba(242,196,109,.5);
+    background: rgba(30,27,58,.6); color: var(--gold); font-size: 18px; cursor: pointer; }
+  .ctl:hover { background: rgba(242,196,109,.15); }
+  .note { margin-top: 12px; color: #9d94bd; font-size: 14px; min-height: 1.2em; z-index: 10; }
+
+  /* night-light: the room dims page by page */
+  .dim { position: fixed; inset: 0; background: #05040d; opacity: 0; pointer-events: none;
+    transition: opacity 3s ease; z-index: 8; }
+  .goodnight { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    font: 700 clamp(28px, 5vw, 54px) "Grandstander", "Chalkboard SE", "Comic Neue", "Trebuchet MS", sans-serif; color: var(--gold);
+    opacity: 0; pointer-events: none; transition: opacity 3s ease; z-index: 9; }
+  .goodnight.on { opacity: .85; }
+
+  /* phones: one page at a time, picture above words */
+  @media (max-width: 760px) {
+    :root { --page-w: 92vw; --page-h: auto; }
+    body { overflow: auto; justify-content: flex-start; padding: 16px 0 24px; }
+    .stage { perspective: none; }
+    .book, .book.closed { width: var(--page-w); height: auto; transform: none; }
+    .page { position: relative; width: 100%; }
+    .page.left { height: 72vw; border-radius: 14px 14px 0 0; box-shadow: none; }
+    .page.right { border-radius: 0 0 14px 14px; box-shadow: none; min-height: 50vh; }
+    .book.closed .page { display: none; }
+    .cover { position: relative; width: 100%; height: 125vw; transition: opacity 1s; }
+    .book.open .cover { display: none; }
+    .leaf { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="stars" id="stars" aria-hidden="true"></div>
+<div class="dim" id="dim"></div>
+<div class="goodnight" id="goodnight" aria-live="polite"></div>
+
+<main class="stage">
+  <div class="book closed" id="book">
+    <div class="page left" aria-hidden="true">
+      <div class="art"><img id="art" alt=""><canvas id="dust"></canvas></div>
+    </div>
+    <div class="page right">
+      <div class="words" id="words" aria-live="polite"></div>
+      <div class="breathe" id="breathe"><i></i><span id="breatheLabel">Breathe in…</span></div>
+      <div class="folio" id="folio"></div>
+    </div>
+    <div class="leaf" id="leaf" aria-hidden="true"></div>
+    <div class="cover" id="cover">
+      <div class="front">
+        <div class="moon" aria-hidden="true"></div>
+        <h1 id="coverTitle"></h1>
+        <p class="for" id="coverFor"></p>
+        <button class="start" id="start">Start reading</button>
+      </div>
+      <div class="back"></div>
+    </div>
+  </div>
+</main>
+
+<div class="controls" id="controls">
+  <button class="ctl" id="prev" aria-label="Previous page">⏮</button>
+  <button class="ctl" id="play" aria-label="Pause">❚❚</button>
+  <button class="ctl" id="next" aria-label="Next page">⏭</button>
+</div>
+<div class="note" id="note"></div>
+
+<script type="application/json" id="story-data">__STORY_DATA__</script>
+<script>
+(() => {
+  const data = JSON.parse(document.getElementById("story-data").textContent);
+  const $ = (id) => document.getElementById(id);
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const book = $("book"), words = $("words"), art = $("art");
+  $("leaf").addEventListener("animationend", (e) => e.currentTarget.classList.remove("turn"));
+  let page = -1, playing = false, audio = null, timer = null, spans = [], weights = [];
+
+  // ---------- cover ----------
+  $("coverTitle").textContent = data.title;
+  $("coverFor").textContent = data.name ? `A story for ${data.name}, read by Nari` : "Read by Nari";
+  document.title = data.title;
+
+  // ---------- starry room ----------
+  const stars = $("stars");
+  for (let i = 0; i < 90; i++) {
+    const s = document.createElement("span");
+    s.className = "star" + (i % 3 === 0 ? " tw" : "");
+    s.style.left = Math.random() * 100 + "%";
+    s.style.top = Math.random() * 100 + "%";
+    s.style.animationDelay = (Math.random() * 4).toFixed(2) + "s";
+    stars.appendChild(s);
+  }
+
+  // ---------- floating pixie dust over the picture ----------
+  const dust = $("dust"), ctx = dust.getContext("2d");
+  let motes = [];
+  function sizeDust() {
+    const r = dust.getBoundingClientRect();
+    dust.width = r.width * devicePixelRatio; dust.height = r.height * devicePixelRatio;
+    motes = Array.from({ length: 38 }, () => newMote(true));
+  }
+  function newMote(anywhere) {
+    return { x: Math.random() * dust.width, y: anywhere ? Math.random() * dust.height : dust.height + 10,
+             r: (Math.random() * 1.8 + .6) * devicePixelRatio, v: (Math.random() * .25 + .08) * devicePixelRatio,
+             drift: Math.random() * Math.PI * 2, tw: Math.random() * Math.PI * 2 };
+  }
+  function drawDust() {
+    ctx.clearRect(0, 0, dust.width, dust.height);
+    for (const m of motes) {
+      m.y -= m.v; m.drift += .01; m.tw += .05; m.x += Math.sin(m.drift) * .25;
+      if (m.y < -10) Object.assign(m, newMote(false));
+      const a = .35 + .45 * Math.abs(Math.sin(m.tw));
+      const g = ctx.createRadialGradient(m.x, m.y, 0, m.x, m.y, m.r * 4);
+      g.addColorStop(0, `rgba(255, 236, 170, ${a})`); g.addColorStop(1, "rgba(255, 236, 170, 0)");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(m.x, m.y, m.r * 4, 0, Math.PI * 2); ctx.fill();
+    }
+    requestAnimationFrame(drawDust);
+  }
+
+  // ---------- page rendering ----------
+  function splitSentences(text) {
+    return text.match(/[^.!?…]+[.!?…]+["'”’)]*\s*|[^.!?…]+$/g) || [text];
+  }
+  function render(i) {
+    const p = data.pages[i];
+    words.innerHTML = ""; spans = []; weights = [];
+    p.text.split(/\n+/).filter(t => t.trim()).forEach(para => {
+      const el = document.createElement("p");
+      splitSentences(para).forEach(sentence => {
+        const s = document.createElement("span");
+        s.className = "s"; s.textContent = sentence;
+        el.appendChild(s); spans.push(s); weights.push(sentence.length);
+      });
+      words.appendChild(el);
+    });
+    words.scrollTop = 0;
+    $("folio").textContent = `${i + 1} of ${data.pages.length}`;
+    $("breathe").classList.toggle("on", i === data.pages.length - 1);
+    if (p.image) { art.src = p.image; art.style.display = ""; } else { art.removeAttribute("src"); art.style.display = "none"; }
+    art.className = reduced ? "" : (i % 2 ? "kb-b" : "kb-a");
+    void art.offsetWidth;  // restart the slow zoom for the new picture
+    $("dim").style.opacity = (0.55 * i / Math.max(1, data.pages.length - 1)).toFixed(2);
+  }
+
+  // Highlight the sentence Nari is reading, estimated from audio progress.
+  function highlight(fraction) {
+    const total = weights.reduce((a, b) => a + b, 0);
+    let acc = 0, idx = spans.length - 1;
+    for (let k = 0; k < weights.length; k++) { acc += weights[k]; if (acc / total >= fraction) { idx = k; break; } }
+    spans.forEach((s, k) => { s.classList.toggle("now", k === idx); s.classList.toggle("read", k < idx); });
+    const cur = spans[idx];
+    if (cur && cur.offsetTop > words.scrollTop + words.clientHeight * .7) words.scrollTop = cur.offsetTop - 40;
+  }
+
+  // ---------- narration ----------
+  function stopSound() {
+    if (audio) { audio.pause(); audio.onended = audio.ontimeupdate = null; audio = null; }
+    clearInterval(timer); timer = null; silent = null;
+  }
+  function playClip(src, onDone, onProgress) {
+    stopSound();
+    if (!src) { onDone(); return; }
+    audio = new Audio(src);
+    audio.ontimeupdate = () => onProgress && audio.duration && onProgress(audio.currentTime / audio.duration);
+    audio.onended = () => { audio = null; onDone(); };
+    audio.play().catch(() => { audio = null; $("note").textContent = "Tap ❚❚ / ▶ if the sound doesn't start."; onDone(); });
+  }
+  // No audio for this page: pace the highlight like a calm reader (~2.3 words/second).
+  let silent = null;   // {elapsed, start, duration, onDone}
+  function readSilently(onDone) {
+    stopSound();
+    const n = data.pages[page].text.split(/\s+/).length;
+    silent = { elapsed: 0, start: 0, duration: n / 2.3 * 1000, onDone };
+    runSilent();
+  }
+  function runSilent() {
+    silent.start = Date.now();
+    timer = setInterval(() => {
+      const f = Math.min(1, (silent.elapsed + Date.now() - silent.start) / silent.duration);
+      highlight(f);
+      if (f >= 1) { clearInterval(timer); timer = null; const done = silent.onDone; silent = null; done(); }
+    }, 200);
+  }
+  function readPage() {
+    const p = data.pages[page];
+    highlight(0);
+    const done = () => { highlight(1.01); setTimeout(() => playing && nextPage(), 1400); };
+    if (p.audio) playClip(p.audio, done, highlight); else readSilently(done);
+  }
+  function goTo(i, turn = true) {
+    if (i < 0 || i >= data.pages.length) return;
+    stopSound();
+    const forward = i > page;
+    page = i;
+    if (turn && forward && !reduced) {
+      const leaf = $("leaf"); leaf.classList.remove("turn"); void leaf.offsetWidth; leaf.classList.add("turn");
+      setTimeout(() => render(i), 450);
+      setTimeout(() => playing ? readPage() : highlight(0), 1000);
+    } else { render(i); playing ? readPage() : highlight(0); }
+  }
+  function nextPage() {
+    if (page < data.pages.length - 1) goTo(page + 1);
+    else finish();
+  }
+  function finish() {
+    playing = false; setPlayIcon();
+    $("goodnight").textContent = data.name ? `Goodnight, ${data.name}` : "Goodnight";
+    playClip(data.outro, () => {}, null);
+    $("dim").style.opacity = "0.9";
+    $("goodnight").classList.add("on");
+  }
+  function setPlayIcon() {
+    $("play").textContent = playing ? "❚❚" : "▶";
+    $("play").setAttribute("aria-label", playing ? "Pause" : "Play");
+  }
+  function togglePlay() {
+    if (page < 0) return;
+    $("goodnight").classList.remove("on");
+    playing = !playing; setPlayIcon();
+    if (playing) {
+      if (audio) audio.play();
+      else if (silent) runSilent();
+      else readPage();
+    } else {
+      if (audio) audio.pause();
+      if (timer) { clearInterval(timer); timer = null; silent.elapsed += Date.now() - silent.start; }
+    }
+  }
+
+  // ---------- start ----------
+  $("start").addEventListener("click", () => {
+    book.classList.remove("closed"); book.classList.add("open");
+    // once the cover has swung open, take it off the stage so the picture shows
+    // (and flatten the 3D stage: the animated picture can otherwise z-fight with its page)
+    setTimeout(() => { $("cover").style.visibility = "hidden"; book.style.transformStyle = "flat"; },
+               reduced ? 0 : 1650);
+    $("start").disabled = true;
+    page = 0; render(0); highlight(0);
+    setTimeout(() => {
+      sizeDust(); if (!reduced) drawDust();
+      $("controls").classList.add("on");
+      playing = true; setPlayIcon();
+      playClip(data.intro, readPage, null);   // "Hello, I'm Nari..." then page one
+    }, reduced ? 50 : 1500);
+    if (!data.hasAudio) $("note").textContent = "Nari's voice wasn't available, so the words will light up as you read together.";
+  });
+  $("play").addEventListener("click", togglePlay);
+  $("next").addEventListener("click", () => { if (page < data.pages.length - 1) goTo(page + 1); });
+  $("prev").addEventListener("click", () => goTo(page - 1, false));
+  document.addEventListener("keydown", (e) => {
+    if (page < 0) return;
+    if (e.key === " ") { e.preventDefault(); togglePlay(); }
+    if (e.key === "ArrowRight") $("next").click();
+    if (e.key === "ArrowLeft") $("prev").click();
+  });
+  addEventListener("resize", () => page >= 0 && sizeDust());
+
+  // breathing label follows the 8s circle: in for 4s, out for 4s
+  let inhale = true;
+  setInterval(() => { inhale = !inhale; $("breatheLabel").textContent = inhale ? "Breathe in…" : "…and breathe out"; }, 4000);
+})();
+</script>
+</body>
+</html>

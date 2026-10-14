@@ -1,0 +1,90 @@
+"""Deterministic checks done in code, not by the LLM.
+
+gpt-3.5 cannot count its own words or reliably notice a missing name, but
+Python can - exactly, every time, for free.
+"""
+from __future__ import annotations
+
+import re
+
+from .config import WORD_TOLERANCE, AgeTier
+from .models import Brief, Story
+
+STOPWORDS = {"the", "a", "an", "and", "of", "her", "his", "their", "with", "who",
+             "named", "called", "best", "friend", "little", "big", "my", "is", "to"}
+
+PREACHY = [
+    r"moral of (the|this) story",
+    r"\b(and|so) (they|she|he|everyone|we) (all )?learned (that|how)",
+    r"\bthe lesson (is|was)\b",
+    r"\b(always|never) forget to\b",
+]
+
+
+def keyword_hits(text: str, tier: AgeTier) -> list[str]:
+    """Banned words for this age tier, matched on whole words only."""
+    hits = []
+    for pattern in tier.banned_patterns:
+        for m in re.finditer(rf"\b{pattern}\b", text, re.IGNORECASE):
+            word = m.group(0).lower()
+            if word not in hits:
+                hits.append(word)
+    return hits
+
+
+def _mentions(text: str, item: str) -> bool:
+    """True if the story mentions a requested item: the full phrase, or every
+    meaningful word of it ("her cat Bob" -> "cat" and "bob")."""
+    low = text.lower()
+    if item.lower() in low:
+        return True
+    words = [w for w in re.findall(r"[a-z']+", item.lower()) if w not in STOPWORDS and len(w) > 2]
+    return bool(words) and all(re.search(rf"\b{re.escape(w)}", low) for w in words)
+
+
+def sentence_lengths(text: str) -> list[int]:
+    sentences = [s for s in re.split(r"[.!?]+[\"')\]]*\s+", text) if s.strip()]
+    return [len(re.findall(r"[A-Za-z']+", s)) for s in sentences]
+
+
+def code_checks(brief: Brief, story: Story) -> tuple[list[str], list[str]]:
+    """Return (safety_issues, requirement_issues) found by plain code."""
+    safety, issues = [], []
+    text = story.text
+
+    hits = keyword_hits(text, brief.tier)
+    if hits:
+        safety.append(f"Remove words not suitable for {brief.tier.label}: {', '.join(hits)}.")
+
+    if len(story.pages) != brief.pages:
+        issues.append(f"The story must have exactly {brief.pages} pages (it has {len(story.pages)}).")
+
+    target, count = brief.word_target, story.word_count
+    low, high = int(target * (1 - WORD_TOLERANCE)), int(target * (1 + WORD_TOLERANCE))
+    if not low <= count <= high:
+        direction = "longer" if count < low else "shorter"
+        issues.append(f"The story is {count} words; it must be {low}-{high} words "
+                      f"(target {target}). Make it {direction} by adjusting description, "
+                      f"not by adding or removing plot.")
+
+    missing = [m for m in brief.must_include if not _mentions(text, m)]
+    if missing:
+        issues.append(f"The parent asked for these, but they are missing: {', '.join(missing)}.")
+
+    name = brief.listener.name
+    if name and not re.search(rf"\b{re.escape(name)}\b", text, re.IGNORECASE):
+        issues.append(f"{name} (the listener) must appear in the story.")
+
+    for pattern in PREACHY:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            issues.append(f'Remove the stated moral ("{m.group(0)}..."); show it through what happens instead.')
+            break
+
+    lengths = sentence_lengths(text)
+    if lengths:
+        avg = sum(lengths) / len(lengths)
+        if avg > brief.tier.max_avg_sentence:
+            issues.append(f"Sentences average {avg:.0f} words; keep them under "
+                          f"{brief.tier.max_avg_sentence} for a {brief.listener.age}-year-old.")
+    return safety, issues
