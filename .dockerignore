@@ -1,0 +1,11 @@
+.env
+.git
+.venv
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+output/
+evals/stories/
+evals/results.md
+evals/memory.json
+.DS_Store

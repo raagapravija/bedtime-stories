@@ -242,7 +242,7 @@ def test_quality_judge_counts_skipped_questions_as_no():
         del partial["answers"][k]
     llm = good_llm(judge=partial)
     result = create_story(listener(), Request("friendship", "x"), llm=llm)
-    answers = result.history[0].verdict.answers
+    answers = next(d for d in result.history if d.verdict.judged).verdict.answers
     assert answers["hook"] is False and answers["senses"] is False
 
 
@@ -474,3 +474,15 @@ def test_a_story_that_retells_itself_fails_the_code_checks():
     assert "too early" in problems                        # asleep long before the end
 
 
+
+
+def test_side_by_side_judge_only_counts_agreeing_answers():
+    from bedtime.judge import compare
+    from bedtime.models import Story
+    from fakes import FakeLLM
+    a, b = Story("A", ["one"]), Story("B", ["two"])
+    # first ask: A wins everything; swapped ask: the first-shown story wins everything (position bias)
+    llm = FakeLLM(pairwise=[{"plot": "A", "creativity": "A", "development": "A", "language": "A", "bedtime": "A"},
+                           {"plot": "B", "creativity": "A", "development": "B", "language": "B", "bedtime": "B"}])
+    got = compare(llm, 7, a, b)
+    assert got["plot"] == "A" and got["creativity"] == "tie"

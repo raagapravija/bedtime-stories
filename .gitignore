@@ -6,3 +6,4 @@ stories/
 output/
 evals/results/
 .DS_Store
+evals/memory.json

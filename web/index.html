@@ -3,161 +3,336 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bedtime Story Maker</title>
+<title>The Bedtime Library</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&family=Young+Serif&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,500;1,9..144,600;1,9..144,700&family=Nunito:wght@400;600;700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400&display=swap" rel="stylesheet">
 <style>
   :root {
-    --room: #161a33;          /* the bedroom at night */
-    --wall-text: #c8cbe3;
-    --page: #f2e2c4;          /* candlelit paper */
-    --ink: #24284b;           /* navy ink */
-    --ink-soft: #5d6188;
-    --foil: #e3b65a;          /* gold foil */
-    --foil-deep: #a9832f;
-    --wood: #5a3a24;          /* the shelf */
-    --wood-dark: #3d2717;
-    --line: #3d4373;
-    --display: "Young Serif", Georgia, serif;
+    --sky-1: #0f1633;         /* night */
+    --sky-2: #1c2552;
+    --sky-3: #2c3470;
+    --moon: #fbefc8;
+    --walnut: #3b2416;        /* the bookcase: dark walnut */
+    --walnut-hi: #5a3822;
+    --walnut-dark: #22140b;
+    --back: #1a0f08;          /* inside the shelves */
+    --back-2: #2a190e;
+    --cocoa: #4a2e1f;
+    --cocoa-soft: #8a6552;
+    --cream: #fff8ec;
+    --text: #f3ead8;          /* text on the night sky */
+    --text-soft: #c9c3dd;
+    --purple: #966fd6;        /* dark pastel purple: whatever is chosen */
+    --purple-deep: #7a55bd;
+    --purple-soft: #ece3fa;
+    --accent-text: #cdb6f2;
+    --on-wood: var(--text);
+    --pink: #f7c6d9; --peach: #fbd3b5; --butter: #f9e7a1; --mint: #bfe8d2; --sky: #bcdcf5;
+    --lavender: #d9c9f2; --lilac: #ecc8ef; --coral: #f6b8b0; --sage: #cfe3b8; --aqua: #b8e6e6;
+    /* names the reader styles use */
+    --ink: #3f2d3a;
+    --ink-soft: #7a6672;
+    --page: #fffaf0;
+    --wall-text: var(--text);
+    --foil: var(--moon);
+    --foil-deep: var(--purple);
+    --line: #5a5f8f;
+    --room: var(--sky-2);
+    --display: "Fredoka", "Nunito", system-ui, sans-serif;
+    --ui: "Nunito", system-ui, sans-serif;
     --body: "Literata", Georgia, serif;
+    --lib-w: 0px;
   }
   * { box-sizing: border-box; }
-  html { margin: 0; background: #10132a; }
+  html { margin: 0; background: linear-gradient(var(--sky-1), var(--sky-2) 55%, var(--sky-3)) fixed var(--sky-1); }
   body {
-    margin: 0; min-height: 100vh; color: var(--wall-text); font-family: var(--body); font-size: 17px; line-height: 1.6;
-    background: radial-gradient(ellipse 70% 600px at 50% -80px, #2f3567 0%, transparent 70%) no-repeat,
-                linear-gradient(var(--room), #10132a 900px) no-repeat;
+    margin: 0; min-height: 100vh; color: var(--text); font-family: var(--ui); font-size: 17px; line-height: 1.6;
+    background: transparent; overflow-x: hidden;
+  }
+  /* the stars and the moon stay put while the page scrolls */
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(1.6px 1.6px at 8% 12%, #fff 98%, transparent), radial-gradient(1.2px 1.2px at 17% 32%, #fff 98%, transparent),
+      radial-gradient(2px 2px at 26% 8%, #fff7d6 98%, transparent),  radial-gradient(1.2px 1.2px at 34% 22%, #fff 98%, transparent),
+      radial-gradient(1.6px 1.6px at 46% 6%, #fff 98%, transparent), radial-gradient(1.2px 1.2px at 55% 18%, #fff 98%, transparent),
+      radial-gradient(2px 2px at 63% 10%, #fff7d6 98%, transparent), radial-gradient(1.2px 1.2px at 71% 28%, #fff 98%, transparent),
+      radial-gradient(1.6px 1.6px at 88% 9%, #fff 98%, transparent), radial-gradient(1.2px 1.2px at 94% 30%, #fff 98%, transparent),
+      radial-gradient(1.2px 1.2px at 4% 48%, #fff 98%, transparent), radial-gradient(1.6px 1.6px at 97% 52%, #fff 98%, transparent),
+      radial-gradient(1.2px 1.2px at 12% 70%, #fff 98%, transparent), radial-gradient(2px 2px at 92% 76%, #fff7d6 98%, transparent),
+      radial-gradient(1.2px 1.2px at 40% 40%, #fff 98%, transparent), radial-gradient(1.2px 1.2px at 78% 46%, #fff 98%, transparent),
+      radial-gradient(1.6px 1.6px at 6% 90%, #fff 98%, transparent), radial-gradient(1.2px 1.2px at 52% 88%, #fff 98%, transparent);
+  }
+  .sky-moon {
+    position: fixed; top: 34px; left: 5vw; width: 74px; height: 74px; border-radius: 50%; z-index: -1; pointer-events: none;
+    box-shadow: inset -20px 6px 0 0 var(--moon); transform: rotate(-18deg);
+    filter: drop-shadow(0 0 22px rgba(251,239,200,.45));
+  }
+  .twinkle { position: fixed; z-index: -1; pointer-events: none; width: 14px; height: 14px; background: var(--moon);
+    clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+  @media (prefers-reduced-motion: no-preference) {
+    .twinkle { animation: twinkle 3.2s ease-in-out infinite; }
+    .twinkle:nth-of-type(2) { animation-delay: 1.1s; } .twinkle:nth-of-type(3) { animation-delay: 2.2s; }
+    @keyframes twinkle { 50% { opacity: .25; transform: scale(.7); } }
   }
   [hidden] { display: none !important; }
-  main { max-width: 1040px; margin: 0 auto; padding: 36px 16px 64px; }
-  :focus-visible { outline: 3px solid var(--foil); outline-offset: 3px; }
+  main { position: relative; z-index: 1; max-width: 1500px; margin: 0 auto; padding: 0 16px 80px; }
+  :focus-visible { outline: 3px solid var(--purple); outline-offset: 3px; }
   fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 
-  /* ---------- masthead ---------- */
-  .masthead { text-align: center; margin-bottom: 30px; }
-  .masthead h1 { font: 400 clamp(32px, 6vw, 52px)/1.05 var(--display); color: var(--foil); margin: 0; }
-  .masthead p { margin: 8px 0 0; opacity: .85; }
+  .masthead { text-align: center; padding: 26px 0 0; margin: 0 0 18px; }
+  .masthead h1 { margin: 0; font: 700 clamp(38px, 6.4vw, 70px)/1.05 var(--display); color: var(--moon); letter-spacing: .01em;
+    text-shadow: 0 0 24px rgba(251,239,200,.35), 0 4px 0 rgba(0,0,0,.35); }
+  .masthead p { margin: 8px auto 0; max-width: 36em; font-weight: 600; color: var(--text-soft); }
 
-  /* ---------- the inside cover: choosing ---------- */
-  .form { display: grid; gap: 34px; }
-  .bookplate {
-    justify-self: center; width: min(520px, 100%); text-align: center;
-    background: var(--page); color: var(--ink); border-radius: 6px; padding: 22px 26px 24px;
-    border: 2px solid var(--foil-deep); outline: 1px solid var(--foil-deep); outline-offset: -8px;
-    box-shadow: 0 18px 40px rgba(0,0,0,.4);
-  }
-  .bookplate label { display: block; font: 400 22px var(--display); margin-bottom: 10px; }
-  .bookplate input {
-    width: 100%; text-align: center; font: italic 24px var(--body); color: var(--ink); background: transparent;
-    border: 0; border-bottom: 2px dotted var(--ink-soft); padding: 4px 6px;
-  }
-  .bookplate input:focus { outline: none; border-bottom-color: var(--ink); }
-  .bookplate .hint { font-size: 14px; color: var(--ink-soft); margin: 8px 0 0; }
-
-  .step-title { display: block; width: 100%; font: 400 24px var(--display); color: var(--foil);
-    text-align: center; margin: 0 0 14px; padding: 0; }
-
-  .ages { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
-  .choice input { position: absolute; opacity: 0; pointer-events: none; }
-  .age span {
-    display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; cursor: pointer;
-    font: 400 24px var(--display); border: 2px solid var(--line);
-    transition: background .15s, color .15s, border-color .15s;
-  }
-  .age span:hover { border-color: var(--foil-deep); }
-  .age input:checked + span { background: var(--foil); color: var(--ink); border-color: var(--foil); }
-  .age input:focus-visible + span { outline: 3px solid var(--foil); outline-offset: 3px; }
-
-  /* the bookshelf: every kind of story is a cloth-bound book */
-  .books {
-    display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; row-gap: 10px;
-    padding: 18px 10px 0;
-  }
-  .book {               /* each book stands on its own piece of shelf, so every row has a shelf */
-    padding: 0 2.5px;
-    background: linear-gradient(transparent calc(100% - 16px), var(--wood) calc(100% - 16px), var(--wood-dark) 100%);
-  }
-  .book span {
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
-    width: 54px; height: var(--h, 190px); margin-bottom: 16px; border-radius: 3px 3px 1px 1px;
+  /* ---------- the bookcase: the whole form lives inside it ---------- */
+  .form {
+    display: grid; gap: 26px; position: relative; padding: 0 clamp(14px, 2.4vw, 34px) 30px;
+    border-radius: 18px 18px 8px 8px;
     background:
-      linear-gradient(90deg, rgba(255,255,255,.10) 0 3px, transparent 3px calc(100% - 4px), rgba(0,0,0,.25) calc(100% - 4px)),
-      linear-gradient(transparent 14px, var(--foil) 14px 16px, transparent 16px calc(100% - 18px), var(--foil) calc(100% - 18px) calc(100% - 16px), transparent calc(100% - 16px)),
-      var(--cloth, #444);
-    color: #f6e7c4; writing-mode: vertical-rl; transform: rotate(180deg);
-    font: 400 15px/1.1 var(--display); text-align: center; padding: 22px 0;
-    box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
-    transition: transform .2s ease, box-shadow .2s ease;
+      linear-gradient(90deg, rgba(0,0,0,.35), transparent 3%, transparent 97%, rgba(0,0,0,.35)),
+      repeating-linear-gradient(92deg, rgba(255,255,255,.025) 0 3px, transparent 3px 13px),
+      var(--walnut);
+    box-shadow: 0 30px 60px rgba(0,0,0,.6), inset 0 0 0 3px var(--walnut-dark);
   }
-  .book:hover span { transform: rotate(180deg) translateY(6px); }
-  .book input:checked + span { transform: rotate(180deg) translateY(16px);
-    box-shadow: 0 0 0 2px var(--foil), 0 0 18px rgba(227,182,90,.45); }
-  .book input:focus-visible + span { outline: 3px solid var(--foil); outline-offset: 2px; }
-  .chosen { text-align: center; min-height: 3.2em; margin: 14px auto 0; max-width: 560px; }
-  .chosen b { font: 400 20px var(--display); color: var(--foil); display: block; }
-  #ideaBox { max-width: 600px; margin: 6px auto 0; }
-  #ideaBox label { display: block; text-align: center; margin-bottom: 8px; }
+  .form::before {                        /* the carved crown along the top */
+    content: ""; display: block; height: 30px; margin: 0 calc(-1 * clamp(14px, 2.4vw, 34px)); border-radius: 18px 18px 0 0;
+    background: linear-gradient(transparent 70%, rgba(0,0,0,.35) 70% 76%, transparent 76%),
+                linear-gradient(var(--walnut-hi), var(--walnut) 80%);
+    box-shadow: 0 4px 0 var(--walnut-dark);
+  }
+
+  /* ---------- the library card, pinned to the bookcase ---------- */
+  .card {
+    justify-self: center; width: min(620px, 100%); color: var(--cocoa); border-radius: 22px; position: relative;
+    background: var(--cream); padding: 18px 28px 22px;
+    box-shadow: 0 10px 0 var(--walnut-dark), 0 14px 30px rgba(0,0,0,.45);
+  }
+  .card::before, .card::after {          /* two brass pins */
+    content: ""; position: absolute; top: 10px; width: 12px; height: 12px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #fff2c4, #c9a24d 60%, #7c5d22);
+  }
+  .card::before { left: 14px; } .card::after { right: 14px; }
+  .card h2 { font: 700 26px var(--display); margin: 0 0 8px; text-align: center; color: var(--purple-deep); }
+  .card .label { display: block; font: 600 18px var(--display); color: var(--cocoa); margin: 8px 0 6px; }
+  .card input[type=text] {
+    width: 100%; font: 600 20px var(--ui); color: var(--cocoa); background: #fff3e6;
+    border: 3px solid #e2c7a6; border-radius: 999px; padding: 10px 20px;
+  }
+  .card input[type=text]::placeholder { color: #c4a58c; }
+  .card input[type=text]:focus { outline: none; border-color: var(--purple); background: #fff; }
+  .card .hint { font-size: 14px; color: var(--cocoa-soft); margin: 6px 0 0 8px; }
+  .ages { display: flex; flex-flow: row nowrap; gap: 10px; overflow-x: auto; padding: 4px 2px 8px; }
+  .choice input { position: absolute; opacity: 0; pointer-events: none; }
+  .age { flex: none; }
+  .age span {
+    display: grid; place-items: center; width: 54px; height: 54px; border-radius: 50%; cursor: pointer;
+    font: 700 22px var(--display); color: var(--cocoa); background: var(--c, var(--butter));
+    box-shadow: 0 4px 0 rgba(74,46,31,.35); transition: transform .15s, background .15s, color .15s;
+  }
+  .age span:hover { transform: translateY(-3px); }
+  .age input:checked + span { background: var(--purple); color: #fff; transform: scale(1.12); box-shadow: 0 4px 0 var(--purple-deep); }
+  .age input:focus-visible + span { outline: 3px solid var(--purple); outline-offset: 3px; }
+
+  /* ---------- the shelves ---------- */
+  .case-title { display: table; margin: 0 auto 18px; padding: 6px 26px 4px; border-radius: 10px;
+    font: 700 24px var(--display); color: var(--cocoa);
+    background: linear-gradient(#fff2c4, #e2c37a 55%, #b38a3a); box-shadow: 0 3px 0 var(--walnut-dark); }
+  .cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 26px 18px; margin-bottom: 14px; }
+  .cell { position: relative; display: block; cursor: pointer; min-width: 0; }
+  .nook {
+    position: relative; height: clamp(170px, 19vw, 250px); border-radius: 4px; overflow: hidden;
+    display: flex; align-items: flex-end; gap: 3px; padding: 0 12px; justify-content: center;
+    background: linear-gradient(var(--back), var(--back-2) 70%);
+    box-shadow: inset 0 14px 22px rgba(0,0,0,.7), inset 0 -2px 0 rgba(255,255,255,.04);
+    border-bottom: 16px solid var(--walnut-hi);
+    transition: transform .25s ease, box-shadow .25s ease, opacity .25s ease;
+  }
+  .vol {                                 /* one pastel book */
+    flex: none; width: var(--w); height: var(--h); border-radius: 4px 4px 1px 1px; background-color: var(--c);
+    background-image: linear-gradient(transparent 12%, rgba(255,255,255,.7) 12% 15%, transparent 15% 82%,
+                                      rgba(255,255,255,.7) 82% 85%, transparent 85%);
+    box-shadow: inset 2px 0 0 rgba(255,255,255,.35), inset -3px 0 0 rgba(0,0,0,.12);
+    transform-origin: bottom left; transition: background-color .3s, transform .25s;
+  }
+  .vol.lean { transform: rotate(var(--r, 14deg)); }
+  .vol.leanleft { transform: rotate(var(--r, -14deg)); transform-origin: bottom right; }
+  .vol.face {                            /* a book standing with its cover facing out */
+    background-image: radial-gradient(circle at 50% 36%, rgba(255,255,255,.75) 0 16%, transparent 17%);
+    border-radius: 3px 9px 9px 3px; border: 3px double rgba(255,255,255,.75);
+    box-shadow: inset 5px 0 0 rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.4);
+  }
+  /* little things kept on the shelves */
+  .decor { flex: none; position: relative; width: calc(var(--s, 1) * 50px); height: calc(var(--s, 1) * 62px); margin: 0 3px; }
+  .decor::before, .decor::after { content: ""; position: absolute; }
+  .plant::before { bottom: 0; left: 22%; width: 56%; height: 38%; background: var(--coral);
+    clip-path: polygon(0 0, 100% 0, 86% 100%, 14% 100%); border-radius: 3px; }
+  .plant::after { bottom: 36%; left: 6%; width: 88%; height: 62%; background:
+    radial-gradient(ellipse 22% 46% at 30% 55%, var(--mint) 96%, transparent),
+    radial-gradient(ellipse 22% 46% at 70% 55%, var(--sage) 96%, transparent),
+    radial-gradient(ellipse 20% 50% at 50% 42%, #9fd8b4 96%, transparent); }
+  .globe::before { bottom: 14%; left: 8%; width: 84%; aspect-ratio: 1; border-radius: 50%; background:
+    radial-gradient(ellipse 30% 22% at 35% 40%, var(--sage) 96%, transparent),
+    radial-gradient(ellipse 22% 30% at 68% 66%, var(--sage) 96%, transparent), var(--sky);
+    box-shadow: inset -5px -4px 0 rgba(0,0,0,.12); }
+  .globe::after { bottom: 0; left: 26%; width: 48%; height: 12%; background: #c9a24d; border-radius: 4px 4px 2px 2px; }
+  .jar::before { bottom: 0; left: 10%; width: 80%; height: 74%; border-radius: 12px 12px 9px 9px;
+    border: 2px solid rgba(255,255,255,.4); background:
+      radial-gradient(2.5px 2.5px at 30% 40%, var(--moon) 98%, transparent), radial-gradient(2px 2px at 62% 28%, var(--moon) 98%, transparent),
+      radial-gradient(3px 3px at 50% 68%, var(--moon) 98%, transparent), radial-gradient(2px 2px at 74% 60%, var(--moon) 98%, transparent),
+      radial-gradient(2px 2px at 24% 76%, var(--moon) 98%, transparent), rgba(255,255,255,.12);
+    box-shadow: 0 0 18px rgba(251,239,200,.25); }
+  .jar::after { bottom: 72%; left: 20%; width: 60%; height: 11%; background: var(--lavender); border-radius: 4px; }
+  .blocks::before, .blocks::after { display: grid; place-items: center; width: 52%; height: 44%; border-radius: 5px;
+    font: 700 calc(var(--s, 1) * 16px)/1 var(--display); color: var(--cocoa); }
+  .blocks::before { content: "A"; bottom: 0; left: 0; background: var(--pink); }
+  .blocks::after { content: "B"; bottom: 44%; left: 24%; background: var(--sky); transform: rotate(-8deg); }
+  .stack { display: flex; flex-direction: column; align-items: center; margin-left: auto; }
+  .stack .vol { height: clamp(13px, 1.3vw, 18px); width: var(--w); border-radius: 3px; background-image: none;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.35), inset 0 -2px 0 rgba(0,0,0,.12); }
+  .vol.wrapped { background-image:
+      linear-gradient(90deg, transparent 42%, var(--coral) 42% 58%, transparent 58%),
+      repeating-linear-gradient(45deg, rgba(255,255,255,.35) 0 6px, transparent 6px 12px); }
+  .tag { position: absolute; right: 16px; top: 22%; font: 700 24px var(--display); color: var(--cocoa);
+    background: var(--cream); padding: 0 12px; border-radius: 10px; transform: rotate(8deg); box-shadow: 0 3px 0 rgba(0,0,0,.4); }
+  .plate {
+    position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); z-index: 4; white-space: nowrap;
+    font: 700 15px/1 var(--display); color: var(--cocoa); padding: 7px 14px 6px; border-radius: 999px;
+    background: var(--cream); box-shadow: 0 3px 0 rgba(0,0,0,.45); transition: background .25s, color .25s, transform .25s;
+  }
+  .cell:hover .nook { box-shadow: inset 0 14px 22px rgba(0,0,0,.55), 0 0 0 3px color-mix(in srgb, var(--purple) 60%, transparent); }
+  .cell input:focus-visible ~ .nook { outline: 4px solid var(--purple); outline-offset: 4px; }
+  /* the chosen shelf comes forward; its books turn dark pastel purple */
+  .cell input:checked ~ .nook {
+    transform: scale(1.07); z-index: 3;
+    background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--purple) 35%, transparent), transparent 70%), linear-gradient(var(--back), var(--back-2));
+    box-shadow: inset 0 14px 22px rgba(0,0,0,.45), 0 0 0 4px var(--purple), 0 0 46px color-mix(in srgb, var(--purple) 60%, transparent);
+  }
+  .cell input:checked ~ .nook .vol { background-color: var(--p); }
+  .cell input:checked ~ .plate { background: var(--purple); color: #fff; transform: translateX(-50%) scale(1.12); z-index: 5; }
+  .cells:has(input:checked) .cell:not(:has(input:checked)) .nook { opacity: .88; }
+
+  /* the reading table: "My own idea" */
+  .desk { display: block; margin: 8px auto 0; max-width: 680px; }
+  .desk-top { display: flex; align-items: center; gap: 18px; cursor: pointer; padding: 14px 22px; border-radius: 22px;
+    background: var(--mint); color: var(--cocoa); box-shadow: 0 6px 0 var(--walnut-dark);
+    transition: transform .15s, background .2s, color .2s; }
+  .desk-top:hover { transform: translateY(-3px); }
+  .desk input:checked + .desk-top { background: var(--purple); color: #fff; box-shadow: 0 6px 0 var(--walnut-dark), 0 0 40px color-mix(in srgb, var(--purple) 60%, transparent); }
+  .desk input:focus-visible + .desk-top { outline: 4px solid var(--purple); outline-offset: 4px; }
+  .notebook { flex: none; width: 66px; height: 48px; border-radius: 6px; position: relative; border: 3px solid var(--cocoa);
+    background: linear-gradient(90deg, #fff 47%, var(--cocoa) 47% 53%, #fff 53%); }
+  .notebook::before { content: ""; position: absolute; inset: 8px 6px; background:
+    repeating-linear-gradient(transparent 0 6px, color-mix(in srgb, var(--purple) 55%, transparent) 6px 8px); }
+  .desk-top b { font: 700 21px var(--display); display: block; }
+  .desk-top small { font-size: 15px; font-weight: 600; opacity: .9; }
+  #ideaBox { margin-top: 14px; }
+  #ideaBox label { display: block; margin-bottom: 6px; text-align: center; font: 600 18px var(--display); color: var(--on-wood); }
   textarea {
-    width: 100%; min-height: 96px; resize: vertical; font: 18px/1.5 var(--body); color: var(--ink);
-    background: var(--page); border: 2px solid var(--foil-deep); border-radius: 6px; padding: 12px 14px;
+    width: 100%; min-height: 120px; resize: vertical; font: 600 18px/34px var(--ui); color: var(--cocoa);
+    background: repeating-linear-gradient(transparent 0 33px, color-mix(in srgb, var(--purple) 30%, transparent) 33px 35px), #fff;
+    border: 3px solid transparent; border-radius: 20px; padding: 8px 18px; box-shadow: 0 6px 0 var(--walnut-dark);
   }
-  textarea:focus { outline: none; border-color: var(--foil); }
-  .count { text-align: right; font-size: 13px; opacity: .7; }
+  textarea:focus { outline: none; border-color: var(--purple); }
+  .count { text-align: right; font-size: 13px; opacity: .7; margin-top: 8px; }
 
-  .error { color: #ffb4a6; text-align: center; min-height: 1.6em; margin: 0; font-weight: 600; }
+  .chosen { text-align: center; min-height: 3.2em; margin: 0 auto; max-width: 560px; font-weight: 600; color: var(--on-wood); }
+  .chosen b { font: 700 24px var(--display); color: var(--accent-text); display: block; }
+
+  .error { color: #ffb4a6; text-align: center; min-height: 1.6em; margin: 0; font-weight: 700; }
   .actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
-  button { font: 400 19px var(--display); border-radius: 999px; cursor: pointer; padding: 13px 28px; border: 0; }
-  button:disabled { opacity: .45; cursor: default; }
-  .gold { background: var(--foil); color: var(--ink); box-shadow: 0 6px 20px rgba(227,182,90,.25); }
-  .gold:hover:not(:disabled) { background: #ecc574; }
-  .ghost { background: transparent; color: var(--wall-text); border: 2px solid var(--line); padding: 11px 22px; }
-  .ghost:hover:not(:disabled) { border-color: var(--foil-deep); }
+  button { font: 700 20px var(--display); border-radius: 999px; cursor: pointer; padding: 14px 34px; border: 0; }
+  button:disabled { opacity: .5; cursor: default; }
+  .gold { color: #fff; background: var(--purple); box-shadow: 0 6px 0 var(--purple-deep), 0 10px 24px rgba(0,0,0,.35);
+    transition: transform .12s, box-shadow .12s, background .2s; }
+  .gold:hover:not(:disabled) { background: var(--purple-deep); transform: translateY(-2px); }
+  .gold:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 var(--purple-deep); }
+  .ghost { background: transparent; color: var(--text); border: 2px solid var(--line); padding: 11px 22px; }
+  .ghost:hover:not(:disabled) { border-color: var(--accent-text); }
 
+  /* ---------- the librarian: big, in the corner, leaning into the bookcase a little ---------- */
+  .librarian { position: fixed; right: 0; bottom: 0; width: 210px; z-index: 20; pointer-events: none; }
+  .librarian { --coat: #3f2a5c; --lapel: #2c1c42; --vest: #e0b04f; --tie: #f39fb8; --tie-dark: #e07f9c; --held: #f9e7a1; }
+  .librarian svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 10px 18px rgba(0,0,0,.55)); }
+  .bubble {
+    position: absolute; right: 150px; bottom: 230px; width: 230px; padding: 12px 16px; border-radius: 22px 22px 6px 22px;
+    background: var(--cream); color: var(--cocoa); font: 600 16px/1.4 var(--display);
+    box-shadow: 0 8px 20px rgba(0,0,0,.45); transition: opacity .3s;
+  }
+  .bubble:empty { opacity: 0; }
+  .lids { transform-box: fill-box; transform-origin: center; transform: scaleY(0); }
+  .blink .lids { transform: scaleY(1); }
+  main { padding-bottom: 260px; }
+  body.reading .librarian { display: none; }
+  @media (min-width: 1000px) {
+    :root { --lib-w: clamp(320px, 30vw, 470px); }
+    main { margin-left: max(16px, calc((100vw - var(--lib-w) - 1500px) / 2)); margin-right: calc(var(--lib-w) - 110px);
+      padding-bottom: 80px; }
+    .librarian { width: var(--lib-w); right: -10px; }
+    .bubble { right: 40px; left: 30px; width: auto; bottom: calc(var(--lib-w) * 1.03); border-radius: 22px 22px 22px 6px; }
+    .bubble::after { content: ""; position: absolute; left: 30%; bottom: -14px; width: 24px; height: 16px; background: var(--cream);
+      clip-path: polygon(0 0, 100% 0, 10% 100%); }
+    body.reading .librarian { display: block; }
+    body.reading main { margin-right: calc(var(--lib-w) + 8px); }
+  }
+  @media (min-width: 761px) and (max-width: 1199px) { .cells { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  /* the bookcase carries on behind the librarian */
+  .back { display: none; }
+  @media (min-width: 1000px) {
+    main { margin-left: auto; margin-right: auto; }
+    .form { padding-right: calc(var(--lib-w) - 30px); }
+    .back { display: grid; position: absolute; top: 54px; bottom: 34px; right: clamp(14px, 2.4vw, 34px);
+      width: calc(var(--lib-w) - 30px - clamp(14px, 2.4vw, 34px) - 22px); grid-auto-rows: clamp(170px, 19vw, 250px);
+      gap: 26px; align-content: start; overflow: hidden; }
+    .back .nook { height: auto; }
+    .form::before { margin-right: calc(-1 * (var(--lib-w) - 30px)); }
+  }
+</style>
+<style>
   /* ---------- the cover ---------- */
   .cover-wrap { display: grid; place-items: center; padding: 10px 0 20px; }
   .cover {
-    position: relative; width: min(400px, 88vw); aspect-ratio: 3 / 4; border-radius: 4px 12px 12px 4px;
+    position: relative; width: min(400px, 88vw); aspect-ratio: 3 / 4; border-radius: 10px 28px 28px 10px;
     background:
-      linear-gradient(90deg, rgba(0,0,0,.35) 0 14px, rgba(255,255,255,.08) 14px 17px, transparent 17px),
-      radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.10), transparent 60%),
-      var(--cloth, #1f3a6b);
-    box-shadow: 0 30px 60px rgba(0,0,0,.5), inset 0 0 0 1px rgba(0,0,0,.3);
+      linear-gradient(90deg, rgba(0,0,0,.10) 0 16px, rgba(255,255,255,.35) 16px 19px, transparent 19px),
+      radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.45), transparent 60%),
+      var(--cloth, var(--lavender));
+    box-shadow: 0 24px 50px rgba(0,0,0,.55);
     display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
-    padding: 40px 34px 40px 48px; color: var(--foil);
+    padding: 40px 34px 40px 48px; color: var(--cocoa);
   }
-  .cover::before {      /* the gold frame stamped into the cloth */
-    content: ""; position: absolute; inset: 22px 20px 22px 34px; border: 2px solid var(--foil);
-    border-radius: 6px; opacity: .8; pointer-events: none;
+  .cover::before {      /* a dashed stitch around the cover */
+    content: ""; position: absolute; inset: 22px 20px 22px 36px; border: 3px dashed rgba(255,255,255,.9);
+    border-radius: 12px 20px 20px 12px; pointer-events: none;
   }
-  .cover .moon { width: 46px; height: 46px; border-radius: 50%; box-shadow: inset -11px 4px 0 0 var(--foil);
+  .cover .moon { width: 52px; height: 52px; border-radius: 50%; box-shadow: inset -13px 4px 0 0 var(--butter);
     transform: rotate(-20deg); margin-bottom: 22px; }
-  .cover h2 { font: 400 clamp(26px, 6vw, 36px)/1.15 var(--display); margin: 0; text-wrap: balance;
-    text-shadow: 0 1px 0 rgba(0,0,0,.35); }
-  .cover .for { font: italic 19px var(--body); margin: 16px 0 26px; color: #f1d998; }
+  .cover h2 { font: 700 clamp(28px, 6vw, 38px)/1.15 var(--display); margin: 0; text-wrap: balance; position: relative; }
+  .cover .for { font: 600 19px var(--ui); margin: 16px 0 26px; color: var(--cocoa); position: relative; }
   .cover button { position: relative; }
   @media (prefers-reduced-motion: no-preference) {
-    .writing h2 { background: linear-gradient(100deg, var(--foil) 40%, #fff3cf 50%, var(--foil) 60%) 0 0 / 300% 100%;
+    .writing h2 { background: linear-gradient(100deg, var(--cocoa) 40%, var(--purple) 50%, var(--cocoa) 60%) 0 0 / 300% 100%;
       -webkit-background-clip: text; background-clip: text; color: transparent; animation: foil 2.6s linear infinite; }
     @keyframes foil { to { background-position: -150% 0; } }
   }
-  .whisper { margin-top: 18px; font-style: italic; text-align: center; min-height: 1.6em; }
+  .whisper { margin-top: 22px; font: 600 18px var(--display); color: var(--text-soft); text-align: center; min-height: 1.6em; }
 
   /* ---------- the open book ---------- */
   .reader { display: grid; gap: 16px; }
   .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .toolbar .title { font: 400 20px var(--display); color: var(--foil); margin: 0; }
+  .toolbar .title { font: 700 24px var(--display); color: var(--moon); margin: 0; }
   .toolbar .tools { display: flex; gap: 8px; flex-wrap: wrap; }
-  .tool { font: 600 15px var(--body); padding: 9px 16px; }
+  .tool { font: 700 16px var(--display); padding: 9px 16px; }
   .tools { align-items: center; }
-  .voice-label { font-size: 14px; opacity: .8; }
-  .voice { font: 15px var(--body); color: var(--wall-text); background: var(--room); border: 2px solid var(--line);
+  .voice-label { font: 600 15px var(--display); }
+  .voice { font: 600 15px var(--ui); color: var(--text); background: var(--sky-2); border: 2px solid var(--line);
     border-radius: 999px; padding: 8px 12px; max-width: 220px; }
-  .voice:focus { outline: none; border-color: var(--foil); }
-  .voice-note { text-align: center; font-size: 14px; color: #f1d998; min-height: 1.4em; margin: 0; }
+  .voice:focus { outline: none; border-color: var(--purple); }
+  .voice-note { text-align: center; font-size: 14px; font-weight: 600; color: var(--text-soft); min-height: 1.4em; margin: 0; }
   .spread {
     position: relative; display: grid; grid-template-columns: 1fr 1fr; min-height: 560px;
-    background: var(--page); color: var(--ink); border-radius: 6px; box-shadow: 0 30px 70px rgba(0,0,0,.55);
+    background: var(--page); color: var(--ink); border-radius: 14px; box-shadow: 0 30px 70px rgba(0,0,0,.55);
   }
   .spread::after {      /* the gutter where the pages meet */
     content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 60px; transform: translateX(-50%);
@@ -168,80 +343,291 @@
   .page p { margin: 0 0 .9em; max-width: 34em; }
   .page .folio { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center; font-size: 14px; color: var(--ink-soft); }
   .page.first > p:first-of-type::first-letter {
-    float: left; font: 400 3.6em/.8 var(--display); color: #7a3b2e; margin: .08em .1em 0 0;
+    float: left; font: 700 3.6em/.8 var(--display); color: var(--purple); margin: .08em .1em 0 0;
   }
-  .page .end { text-align: center; font: 400 26px var(--display); margin-top: 1.2em; }
+  .page .end { text-align: center; font: 700 28px var(--display); color: var(--purple-deep); margin-top: 1.2em; }
   .page .end-mark { text-align: center; color: var(--foil-deep); letter-spacing: .5em; }
-  .s.reading { background: rgba(227,182,90,.45); border-radius: 3px; box-shadow: 0 0 0 3px rgba(227,182,90,.45); }
+  .s.reading { background: var(--purple-soft); border-radius: 4px; box-shadow: 0 0 0 3px var(--purple-soft); }
   @media (prefers-reduced-motion: no-preference) {
     .turn-next .page { animation: in-next .35s ease both; }
     .turn-prev .page { animation: in-prev .35s ease both; }
     @keyframes in-next { from { opacity: 0; transform: translateX(14px); } }
     @keyframes in-prev { from { opacity: 0; transform: translateX(-14px); } }
   }
-  .turns { display: flex; justify-content: center; align-items: center; gap: 18px; }
-  .turns button { width: 52px; height: 52px; padding: 0; font-size: 24px; }
-  .turns span { min-width: 7em; text-align: center; }
-  .note { max-width: 620px; margin: 0 auto; text-align: center; font-size: 15px; color: #f1d998; }
+  /* the arrows sit either side of the book, level with its middle */
+  .bookrow { display: grid; grid-template-columns: auto auto auto; justify-content: center; align-items: center; gap: 16px; }
+  /* the reading book is the SAME size as the book that flew off the shelf and opened (two
+     pages of --bw by --bh), so nothing jumps or grows when it takes over */
+  .bookrow .spread { --bw: min(480px, 44vw); width: calc(var(--bw) * 2);
+    min-height: min(calc(var(--bw) * 1.34), 86vh); }
+  .bookrow .page { padding: 40px 34px 54px; font-size: 18px; line-height: 1.7; }
+  .bookrow .side { width: 52px; height: 52px; padding: 0; font-size: 26px; border-radius: 50%; }
+  .bookrow .side:disabled { opacity: .25; cursor: default; }
+  .turns { display: flex; justify-content: center; align-items: center; }
+  .turns span { min-width: 7em; text-align: center; font: 600 17px var(--display); }
+  .note { max-width: 620px; margin: 0 auto; text-align: center; font-size: 15px; font-weight: 600; color: var(--text-soft); }
 
   /* ---------- after the story ---------- */
   .after { max-width: 640px; margin: 10px auto 0; text-align: center; }
-  .after h3 { font: 400 22px var(--display); color: var(--foil); margin: 0 0 12px; }
+  .after h3 { font: 700 26px var(--display); color: var(--moon); margin: 0 0 12px; }
   .chips { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-  .chip { font: 15px var(--body); padding: 7px 14px; background: transparent; color: var(--wall-text);
-    border: 2px solid var(--line); }
-  .chip:hover { border-color: var(--foil-deep); }
+  .chip { font: 600 15px var(--display); padding: 8px 16px; background: var(--c, var(--sky)); color: var(--cocoa);
+    border: 0; box-shadow: 0 3px 0 rgba(0,0,0,.35); }
+  .chip:hover { background: var(--purple); color: #fff; }
   .change-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-  .change-row input { flex: 1 1 280px; font: 17px var(--body); color: var(--ink); background: var(--page);
-    border: 2px solid var(--foil-deep); border-radius: 999px; padding: 12px 18px; }
-  .change-row input:focus { outline: none; border-color: var(--foil); }
-  footer { text-align: center; font-size: 14px; opacity: .65; margin-top: 40px; }
+  .change-row input { flex: 1 1 280px; font: 600 17px var(--ui); color: var(--cocoa); background: var(--cream);
+    border: 3px solid transparent; border-radius: 999px; padding: 12px 18px; }
+  .change-row input:focus { outline: none; border-color: var(--purple); }
+  footer { text-align: center; font-size: 14px; font-weight: 600; color: var(--text-soft); margin-top: 40px; }
 
-  /* one page at a time on small screens */
+  /* ---------- small screens ---------- */
   @media (max-width: 760px) {
     .spread { grid-template-columns: 1fr; min-height: 0; }
     .spread::after { display: none; }
+    .bookrow { gap: 6px; grid-template-columns: auto minmax(0, 1fr) auto; }
+    .bookrow .spread { width: auto; min-height: min(580px, 80vh); }
+    .bookrow .side { width: 38px; height: 38px; font-size: 22px; }
     .page { padding: 32px 24px 52px; font-size: 19px; }
-    .book span { width: 40px; font-size: 12.5px; padding: 18px 0; }
-    .book { padding: 0 2px; }
-    .ages { gap: 8px; }
-    .age span { width: 46px; height: 46px; font-size: 21px; }
+    .cells { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 12px; }
+    .nook { height: 150px; padding: 0 6px; gap: 2px; }
+    .plate { font-size: 13px; padding: 6px 10px 5px; }
+    .cell input:checked ~ .nook { transform: scale(1.05); }
+    .card { padding: 18px 16px 20px; }
+    .ages { gap: 7px; }
+    .age span { width: 44px; height: 44px; font-size: 19px; }
+    .sky-moon { width: 48px; height: 48px; top: 18px; box-shadow: inset -13px 4px 0 0 var(--moon); }
+    .librarian { width: 160px; right: -6px; }
+    .bubble { display: none; }
+    main { padding-bottom: 200px; }
+  }
+</style>
+<style>
+  /* ---------- the tidy layer: one italic storybook face, muted books, fewer pieces ---------- */
+  :root { --display: "Fraunces", Georgia, serif; --moon: #f6e7b8; --text-soft: #c4c3dc; }
+  .masthead { padding-top: 34px; margin-bottom: 26px; }
+  .masthead h1 { font: italic 600 clamp(40px, 6vw, 70px)/1.05 var(--display); color: var(--moon);
+    text-shadow: 0 0 34px rgba(246,231,184,.35); letter-spacing: 0; }
+  .masthead p { font-weight: 400; font-size: 16.5px; margin-top: 10px; }
+  .card h2, .card .label, .case-title, .plate, .bubble, button, .chosen b, .desk-top b, .age span, .tag,
+  .toolbar .title, .after h3, .cover h2, .turns span, #ideaBox label { font-family: var(--display); font-style: italic; }
+
+  .form { gap: 22px; padding-bottom: 34px; border-radius: 14px 14px 8px 8px; }
+  .form::before { height: 16px; }
+
+  .card { width: min(780px, 100%); padding: 16px 24px 14px; border-radius: 16px; display: grid;
+    grid-template-columns: minmax(0, 1fr) auto; gap: 4px 28px; align-items: end;
+    box-shadow: 0 10px 28px rgba(0,0,0,.4); transform: none; }
+  .card::before, .card::after { display: none; }
+  .card .field { min-width: 0; }
+  .card .label { font-weight: 600; font-size: 17px; margin: 0 0 6px 4px; color: var(--cocoa); }
+  .card input[type=text] { font-size: 19px; padding: 9px 18px; }
+  .card .hint { grid-column: 1 / -1; margin: 6px 0 0 4px; font-size: 13.5px; }
+  .ages { padding: 0; gap: 8px; }
+  .age span { width: 44px; height: 44px; font-weight: 600; font-size: 20px; box-shadow: none; }
+  .age input:checked + span { transform: none; box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--purple); }
+
+  .case-title { display: block; background: none; box-shadow: none; padding: 0; margin: 4px 0 16px;
+    text-align: center; color: var(--moon); font-weight: 600; font-size: 26px; }
+
+  .nook { border-bottom-width: 24px; }
+  .vol { background-image: linear-gradient(transparent 9%, rgba(255,255,255,.42) 9% 11.5%, transparent 11.5%); }
+  .vol.face { background-image: none; border: 2px solid rgba(255,255,255,.35); box-shadow: inset 4px 0 0 rgba(0,0,0,.1); }
+  .plate { bottom: 2px; padding: 0 12px; line-height: 20px; background: none; box-shadow: none;
+    color: rgba(246,231,184,.88); font-weight: 600; font-size: 15px; }
+  .cell input:checked ~ .plate { background: var(--purple); color: #fff; transform: translateX(-50%); border-radius: 999px; }
+  .cell input:checked ~ .nook { transform: scale(1.035); }
+  .cell:hover .nook { box-shadow: inset 0 14px 22px rgba(0,0,0,.55), 0 0 0 2px color-mix(in srgb, var(--purple) 55%, transparent); }
+  .tag { font-weight: 600; font-size: 22px; box-shadow: none; transform: rotate(6deg); }
+
+  .desk { margin-top: 0; max-width: 420px; }
+  .desk-top { justify-content: center; gap: 12px; padding: 10px 18px; border-radius: 999px; background: transparent;
+    color: var(--moon); border: 2px dashed rgba(246,231,184,.45); box-shadow: none; }
+  .desk-top:hover { transform: none; border-color: var(--moon); }
+  .desk input:checked + .desk-top { border: 2px solid var(--purple); box-shadow: none; }
+  .desk-top b { font-weight: 600; font-size: 19px; }
+  .notebook { width: 34px; height: 26px; border-width: 2px; border-radius: 4px; }
+  .notebook::before { inset: 5px 4px; }
+
+  .chosen { min-height: 2.8em; }
+  .chosen b { font-weight: 600; }
+  .gold { font-weight: 600; font-size: 21px; box-shadow: 0 8px 22px rgba(0,0,0,.35); }
+  .gold:active:not(:disabled) { box-shadow: 0 4px 12px rgba(0,0,0,.35); }
+  .bubble { font-weight: 500; font-size: 17px; border-radius: 18px 18px 18px 6px; }
+  @media (max-width: 760px) {
+    .card { grid-template-columns: 1fr; gap: 12px; padding: 16px; }
+    .card .hint { margin-top: 0; }
+    .age span { width: 40px; height: 40px; font-size: 18px; }
+    .plate { font-size: 13.5px; }
+  }
+
+  /* ages: one quiet beige, purple when chosen */
+  .age span { background: #ecdfc4; color: var(--cocoa); }
+  .age input:checked + span { background: var(--purple); color: #fff; }
+
+  /* ---------- the book that comes off the shelf ---------- */
+  .opened { position: fixed; inset: 0; z-index: 40; transition: opacity .6s ease; }
+  .opened::before {                       /* the room slowly becomes the night sky */
+    content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity 1.6s ease;
+    background:
+      radial-gradient(1.6px 1.6px at 8% 12%, #fff 98%, transparent), radial-gradient(1.2px 1.2px at 17% 32%, #fff 98%, transparent),
+      radial-gradient(2px 2px at 26% 8%, #fff7d6 98%, transparent),  radial-gradient(1.2px 1.2px at 34% 22%, #fff 98%, transparent),
+      radial-gradient(1.6px 1.6px at 46% 6%, #fff 98%, transparent), radial-gradient(1.2px 1.2px at 55% 18%, #fff 98%, transparent),
+      radial-gradient(2px 2px at 63% 10%, #fff7d6 98%, transparent), radial-gradient(1.2px 1.2px at 71% 28%, #fff 98%, transparent),
+      radial-gradient(1.6px 1.6px at 88% 9%, #fff 98%, transparent), radial-gradient(1.2px 1.2px at 94% 30%, #fff 98%, transparent),
+      radial-gradient(1.2px 1.2px at 4% 48%, #fff 98%, transparent), radial-gradient(1.6px 1.6px at 97% 52%, #fff 98%, transparent),
+      radial-gradient(1.2px 1.2px at 12% 70%, #fff 98%, transparent), radial-gradient(2px 2px at 92% 76%, #fff7d6 98%, transparent),
+      radial-gradient(1.2px 1.2px at 40% 40%, #fff 98%, transparent), radial-gradient(1.2px 1.2px at 78% 46%, #fff 98%, transparent),
+      radial-gradient(1.6px 1.6px at 6% 90%, #fff 98%, transparent), radial-gradient(1.2px 1.2px at 52% 88%, #fff 98%, transparent),
+      linear-gradient(var(--sky-1), var(--sky-2) 55%, var(--sky-3));
+  }
+  .opened.night::before { opacity: 1; }
+  .opened.fading { opacity: 0; }
+  .flybook { --bw: min(480px, 44vw); --bh: min(calc(var(--bw) * 1.34), 86vh);
+    position: fixed; left: calc(50% - var(--bw) / 2); top: calc(50% - var(--bh) / 2); width: var(--bw); height: var(--bh);
+    perspective: 2400px; transform-origin: 0 0; transition: left .9s cubic-bezier(.4,.1,.2,1); }
+  .flybook.open { left: 50%; }            /* as the cover opens, the book slides so the spread is centred */
+  .pg { position: absolute; inset: 0; background: var(--page); color: var(--ink); overflow: hidden; }
+  .pg-right { border-radius: 0 10px 10px 0; padding: 40px 34px; font-size: 16px; line-height: 1.75;
+    box-shadow: 0 30px 60px rgba(0,0,0,.5), inset 16px 0 20px -14px rgba(80,50,20,.4); }
+  .pg-right p { margin: 0 0 .8em; }
+  .pg-right .folio { position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; font-size: 13px; color: var(--ink-soft); }
+  .pg-right > p:first-of-type::first-letter { float: left; font: italic 700 3.4em/.8 var(--display); color: var(--purple); margin: .08em .1em 0 0; }
+  .cover3d { position: absolute; inset: 0; transform-origin: left center; transform-style: preserve-3d;
+    transition: transform 1.1s cubic-bezier(.4,.1,.2,1); }
+  .flybook.open .cover3d { transform: rotateY(-180deg); }
+  .face-front, .face-back { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  /* the cover, as in the first storybook: cloth, a stamped gold frame, a crescent moon and the title */
+  .face-front {
+    border-radius: 4px 12px 12px 4px; color: var(--moon); text-align: center;
+    background:
+      linear-gradient(90deg, rgba(0,0,0,.35) 0 16px, rgba(255,255,255,.08) 16px 19px, transparent 19px),
+      radial-gradient(ellipse at 30% 18%, rgba(255,255,255,.12), transparent 60%),
+      color-mix(in srgb, var(--cloth, #bfaee0) 50%, #2b2350);
+    box-shadow: 0 30px 60px rgba(0,0,0,.55), inset 0 0 0 1px rgba(0,0,0,.3);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 46px 40px 46px 52px;
+  }
+  .face-front::before { content: ""; position: absolute; inset: 22px 20px 22px 36px; border: 2px solid #d9b866;
+    border-radius: 6px; opacity: .85; pointer-events: none; }
+  .face-front .moon { width: 50px; height: 50px; border-radius: 50%; box-shadow: inset -13px 5px 0 0 #e8c76f; transform: rotate(-20deg); }
+  .face-front h2 { font: italic 600 clamp(26px, 3vw, 36px)/1.15 var(--display); margin: 0; color: var(--moon); text-wrap: balance;
+    position: relative; text-shadow: 0 1px 0 rgba(0,0,0,.35); }
+  .face-front .for { font: italic 500 19px var(--display); margin: 0; color: #f1d998; position: relative; }
+  .face-front #ideaBox { width: 100%; position: relative; }
+  .face-front #ideaBox label { display: block; color: var(--moon); font: italic 600 16px var(--display); margin-bottom: 6px; }
+  .face-front textarea { min-height: 110px; font-size: 16px; line-height: 30px;
+    background: repeating-linear-gradient(transparent 0 29px, rgba(150,111,214,.3) 29px 30px), var(--page); box-shadow: none; border: 0; }
+  .face-front .count { color: var(--moon); opacity: .7; }
+  .face-front .error { color: #ffc2b5; min-height: 0; position: relative; }
+  .face-front .gold { position: relative; }
+  .face-front .whisper { display: none; margin: 0; font: italic 500 17px var(--display); color: #f1d998; }
+  .flybook.writing .face-front .whisper { display: block; }
+  .steps { display: none; list-style: none; margin: 4px 0 0; padding: 0; width: 100%; max-width: 30em;
+    text-align: left; font: italic 500 14.5px/1.45 var(--display); color: rgba(246,231,184,.55); position: relative; }
+  .steps li { padding: 3px 0 3px 20px; position: relative; }
+  .steps li::before { content: "\2713"; position: absolute; left: 0; color: #d9b866; font-style: normal; }
+  .steps li.now { color: var(--moon); }
+  .steps li.now::before { content: "\2726"; }
+  .flybook.writing .steps:not(:empty) { display: block; }
+  .flybook.writing .steps:not(:empty) ~ * , .flybook.writing:has(.steps:not(:empty)) .face-front .whisper { display: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .steps li.now { animation: step-in .5s ease both; }
+    @keyframes step-in { from { opacity: 0; transform: translateY(6px); } }
+  }
+  .card .field.wide { grid-column: 1 / -1; }
+  .card .opt { font-weight: 400; opacity: .6; font-size: 14px; }
+  .flybook.writing #makeBtn, .flybook.writing #ideaBox, .flybook.writing .face-front .error,
+  .flybook.ready #makeBtn, .flybook.ready #ideaBox, .flybook.ready .face-front .error, .flybook.ready .whisper { display: none !important; }
+  @media (prefers-reduced-motion: no-preference) {
+    .flybook.writing .face-front h2 {
+      background: linear-gradient(100deg, var(--moon) 40%, #fff 50%, var(--moon) 60%) 0 0 / 300% 100%;
+      -webkit-background-clip: text; background-clip: text; color: transparent; animation: foil 2.6s linear infinite; }
+  }
+  .face-back { transform: rotateY(180deg); border-radius: 10px 0 0 10px;
+    box-shadow: 0 30px 60px rgba(0,0,0,.5), inset -16px 0 20px -14px rgba(80,50,20,.4);
+    display: flex; align-items: center; justify-content: center; padding: 40px; }
+  .title-page { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
+  .title-page h2 { font: italic 600 clamp(28px, 3vw, 38px)/1.15 var(--display); color: var(--purple-deep); margin: 0; text-wrap: balance; }
+  .title-page .for { font: italic 500 19px var(--display); color: var(--ink-soft); margin: 0; }
+  .title-page .end-mark { color: #c9a24d; margin: 0; }
+  .moon.small { display: block; width: 34px; height: 34px; border-radius: 50%; box-shadow: inset -9px 3px 0 0 #e8c25e; transform: rotate(-20deg); }
+  .page.titled { display: flex; align-items: center; justify-content: center; }
+  .close { position: fixed; top: 18px; right: 22px; width: 48px; height: 48px; padding: 0; border-radius: 50%; z-index: 2;
+    background: rgba(255,255,255,.12); color: var(--moon); font: 400 30px/1 var(--ui); }
+  .close:hover { background: rgba(255,255,255,.22); }
+  .opened:has(.flybook.writing) .close, .opened:has(.flybook.open) .close { display: none; }
+  @media (max-width: 760px) {             /* phones: one page; the cover swings away */
+    .flybook { --bw: 86vw; --bh: min(580px, 80vh); left: 7vw; }
+    .flybook.open { left: 7vw; }
+    .face-front { padding: 40px 30px 40px 44px; }
+    .face-front .gold { font-size: 17px; padding: 12px 20px; white-space: nowrap; }
+    .flybook.open .cover3d { opacity: 0; transition: transform 1.1s cubic-bezier(.4,.1,.2,1), opacity .3s .8s; }
+    .pg-right { border-radius: 10px; }
+  }
+
+  /* ---------- reading: only the book, in the middle ---------- */
+  body.reading .masthead, body.reading .librarian { display: none !important; }
+  body.bookopen .librarian { display: none !important; }
+  .pg .gold { white-space: nowrap; }
+  @media (max-width: 760px) { .pg .gold { font-size: 18px; padding: 12px 24px; } .toolbar .title { font-size: 26px; } }
+  body.reading main { margin-left: auto !important; margin-right: auto !important; padding-top: 34px; }
+  .reader { max-width: 1100px; margin: 0 auto; }
+  .toolbar { justify-content: center; gap: 18px; flex-wrap: nowrap; }
+  .toolbar .title { font: italic 600 clamp(28px, 4vw, 46px)/1.15 var(--display); color: var(--moon); margin: 0; text-align: center;
+    text-shadow: 0 0 30px rgba(246,231,184,.3); }
+  .mic { flex: none; width: 54px; height: 54px; padding: 0; border-radius: 50%; display: grid; place-items: center;
+    background: rgba(255,255,255,.1); color: var(--moon); border: 2px solid rgba(246,231,184,.4); }
+  .mic svg { width: 26px; height: 26px; }
+  .mic:hover:not(:disabled) { background: rgba(255,255,255,.18); }
+  .mic.on { background: var(--purple); color: #fff; border-color: var(--purple); }
+  @media (prefers-reduced-motion: no-preference) {
+    .mic.on { animation: listen 1.6s ease-out infinite; }
+    @keyframes listen { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--purple) 60%, transparent); } 100% { box-shadow: 0 0 0 16px transparent; } }
   }
 </style>
 </head>
 <body>
+<div class="sky-moon" aria-hidden="true"></div>
+<span class="twinkle" style="top:90px;right:22%" aria-hidden="true"></span>
+<span class="twinkle" style="top:30px;left:30%;width:10px;height:10px" aria-hidden="true"></span>
+<span class="twinkle" style="top:150px;left:9%;width:9px;height:9px" aria-hidden="true"></span>
 <main>
   <header class="masthead">
-    <h1>Bedtime Story Maker</h1>
-    <p>Pick a book from the shelf, and a new story is written for tonight.</p>
+    <h1 id="title">The Bedtime Library</h1>
   </header>
 
-  <!-- 1. Choosing: the bookplate, the age, the shelf -->
+  <!-- 1. Choosing: the library card, then a shelf -->
   <form class="form" id="storyForm" novalidate>
-    <div class="bookplate">
-      <label for="name">This book belongs to</label>
-      <input type="text" id="name" maxlength="30" autocomplete="off" placeholder="a name, if you like">
-      <p class="hint">The child becomes the hero. Leave it empty for a new hero.</p>
+    <div class="back" id="backShelves" aria-hidden="true"></div>
+    <div class="card">
+      <div class="field">
+        <label class="label" for="name">Child's name</label>
+        <input type="text" id="name" maxlength="30" autocomplete="off" placeholder="They become the hero">
+      </div>
+      <div class="field">
+        <span class="label" id="ageLabel">Age</span>
+        <div class="ages" id="ages" role="radiogroup" aria-labelledby="ageLabel"></div>
+      </div>
+      <div class="field wide">
+        <label class="label" for="today">Something from today <span class="opt">(optional)</span></label>
+        <input type="text" id="today" maxlength="150" autocomplete="off" placeholder="We went to the zoo and saw a giraffe">
+      </div>
+      <p class="hint">Leave the name empty and the librarian picks a new hero.</p>
     </div>
 
     <fieldset>
-      <legend class="step-title">How old is the listener?</legend>
-      <div class="ages" id="ages"></div>
-    </fieldset>
-
-    <fieldset>
-      <legend class="step-title">Choose a book</legend>
-      <div class="books" id="books"></div>
-      <p class="chosen" id="chosen" aria-live="polite"></p>
-      <div id="ideaBox" hidden>
-        <label for="idea">What should the story be about?</label>
-        <textarea id="idea" maxlength="300" placeholder="An ant and an elephant who become best friends"></textarea>
-        <div class="count"><span id="ideaCount">0</span>/300</div>
+      <legend class="case-title">Choose a shelf</legend>
+      <div class="case">
+        <div class="cells" id="books"></div>
       </div>
+      <label class="choice desk" id="desk">
+        <input type="radio" name="genre" value="custom">
+        <span class="desk-top">
+          <span class="notebook" aria-hidden="true"></span>
+          <span><b>Or write your own idea</b></span>
+        </span>
+      </label>
     </fieldset>
 
-    <p class="error" id="formError" role="alert"></p>
-    <div class="actions"><button type="submit" class="gold" id="makeBtn">Write tonight's story</button></div>
   </form>
 
   <!-- 2. Writing: the cover being stamped -->
@@ -254,35 +640,22 @@
     <p class="whisper" id="whisper"></p>
   </section>
 
-  <!-- 3. The finished book: the cover first -->
-  <section class="cover-wrap" id="coverView" hidden>
-    <div class="cover" id="cover">
-      <div class="moon" aria-hidden="true"></div>
-      <h2 id="coverTitle"></h2>
-      <p class="for" id="coverFor"></p>
-      <button type="button" class="gold" id="openBtn">Open the book</button>
-    </div>
-  </section>
-
   <!-- 4. Reading -->
   <section class="reader" id="reader" hidden>
     <div class="toolbar">
-      <p class="title" id="readerTitle"></p>
-      <div class="tools">
-        <label for="voiceSel" class="voice-label">Voice</label>
-        <select id="voiceSel" class="voice"></select>
-        <button type="button" class="ghost tool" id="readBtn">Read to me</button>
-        <button type="button" class="ghost tool" id="stopBtn" hidden>Stop reading</button>
-      </div>
+      <h2 class="title" id="readerTitle"></h2>
+      <button type="button" class="mic" id="readBtn" aria-label="Read the story aloud" title="Read aloud">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="6" height="11.5" rx="3" fill="currentColor"/>
+          <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      </button>
     </div>
     <div id="notes"></div>
-    <p class="voice-note" id="voiceNote" aria-live="polite"></p>
-    <div class="spread" id="spread" aria-live="polite"></div>
-    <div class="turns">
-      <button type="button" class="ghost" id="prevBtn" aria-label="Previous page">‹</button>
-      <span id="pageCount"></span>
-      <button type="button" class="ghost" id="nextBtn" aria-label="Next page">›</button>
+    <div class="bookrow">
+      <button type="button" class="ghost side" id="prevBtn" aria-label="Previous page">‹</button>
+      <div class="spread" id="spread" aria-live="polite"></div>
+      <button type="button" class="ghost side" id="nextBtn" aria-label="Next page">›</button>
     </div>
+    <div class="turns"><span id="pageCount"></span></div>
 
     <section class="after" id="after" hidden>
       <h3>Change something?</h3>
@@ -300,71 +673,405 @@
   <footer>Stories for ages 5–10, checked for safety before they reach the page.</footer>
 </main>
 
+<!-- The chosen book: it flies off the shelf, the room fades into the night sky, and it opens only
+     when its story has been written. -->
+<div class="opened" id="opened" hidden>
+  <div class="flybook" id="flybook" role="dialog" aria-modal="true" aria-labelledby="flyTitle">
+    <div class="pg pg-right" id="firstPage"></div>
+    <div class="cover3d" id="cover3d">
+      <div class="face-front">
+        <span class="moon" aria-hidden="true"></span>
+        <h2 id="flyTitle"></h2>
+        <p class="for" id="bookFor"></p>
+        <div id="ideaBox" hidden>
+          <label for="idea">What should the story be about?</label>
+          <textarea id="idea" maxlength="300" placeholder="An ant and an elephant who become best friends"></textarea>
+          <div class="count"><span id="ideaCount">0</span>/300</div>
+        </div>
+        <p class="error" id="formError" role="alert"></p>
+        <button type="submit" form="storyForm" class="gold" id="makeBtn">Create the whole story</button>
+        <p class="whisper" id="bookWhisper" aria-live="polite"></p>
+        <ol class="steps" id="bookSteps" aria-label="What the storyteller is doing"></ol>
+      </div>
+      <div class="face-back pg pg-left" id="titlePage"></div>
+    </div>
+  </div>
+  <button type="button" class="close" id="closeBook" aria-label="Put the book back">×</button>
+</div>
+
+<!-- The librarian: an original drawing. His eyes follow the cursor. -->
+<aside class="librarian" aria-hidden="true">
+  <p class="bubble" id="bubble"></p>
+  <svg viewBox="0 0 200 250" id="libSvg">
+    <!-- tweed jacket, waistcoat, shirt and bow tie (colours come from the --coat... variables) -->
+    <defs>
+      <pattern id="tweed" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+        <rect width="6" height="6" style="fill:var(--coat)"/>
+        <path d="M0 3 H6" stroke="#000" stroke-opacity=".10" stroke-width="1.4"/>
+        <path d="M3 0 V6" stroke="#fff" stroke-opacity=".07" stroke-width="1"/>
+      </pattern>
+    </defs>
+    <path d="M18 250 C20 196 52 176 100 176 C148 176 180 196 182 250 Z" fill="url(#tweed)"/>
+    <path d="M80 178 L100 214 L120 178 Z" fill="#fbf6ec"/>
+    <path d="M86 192 L100 216 L114 192 L118 250 L82 250 Z" style="fill:var(--vest)"/>
+    <path d="M76 178 L88 184 L100 230 L90 228 L64 192 Z" style="fill:var(--lapel)"/>
+    <path d="M124 178 L112 184 L100 230 L110 228 L136 192 Z" style="fill:var(--lapel)"/>
+    <path d="M136 206 L152 206 L148 200 L142 203 L139 199 Z" style="fill:var(--tie)"/>
+    <path d="M134 207 H154" style="stroke:var(--lapel)" stroke-width="2.4"/>
+    <path d="M86 186 L100 193 L86 200 Z M114 186 L100 193 L114 200 Z" style="fill:var(--tie)"/>
+    <circle cx="100" cy="193" r="3.6" style="fill:var(--tie-dark)"/>
+    <!-- neck and head -->
+    <rect x="88" y="150" width="24" height="32" rx="10" fill="#e8b994"/>
+    <ellipse cx="52" cy="104" rx="9" ry="13" fill="#e8b994"/>
+    <ellipse cx="148" cy="104" rx="9" ry="13" fill="#e8b994"/>
+    <ellipse cx="100" cy="100" rx="47" ry="56" fill="#f1c7a3"/>
+    <ellipse cx="88" cy="60" rx="16" ry="8" fill="#fff" opacity=".35"/>
+    <!-- white hair tufts -->
+    <g fill="#f3efe6">
+      <circle cx="54" cy="84" r="11"/><circle cx="48" cy="96" r="10"/><circle cx="57" cy="72" r="9"/>
+      <circle cx="146" cy="84" r="11"/><circle cx="152" cy="96" r="10"/><circle cx="143" cy="72" r="9"/>
+    </g>
+    <!-- bushy eyebrows -->
+    <path d="M66 82 C74 70 92 70 98 80 C90 77 76 78 66 86 Z" fill="#f3efe6"/>
+    <path d="M134 82 C126 70 108 70 102 80 C110 77 124 78 134 86 Z" fill="#f3efe6"/>
+    <!-- eyes, behind round spectacles -->
+    <g id="eyes">
+      <circle cx="82" cy="101" r="8" fill="#fff"/>
+      <circle cx="118" cy="101" r="8" fill="#fff"/>
+      <circle id="pupilL" cx="82" cy="101" r="4" fill="#2b2a3a"/>
+      <circle id="pupilR" cx="118" cy="101" r="4" fill="#2b2a3a"/>
+      <g class="lids" fill="#e2b48f">
+        <ellipse cx="82" cy="101" rx="9" ry="9"/><ellipse cx="118" cy="101" rx="9" ry="9"/>
+      </g>
+    </g>
+    <g fill="none" stroke="#9a7428" stroke-width="3">
+      <circle cx="82" cy="101" r="15"/><circle cx="118" cy="101" r="15"/>
+      <path d="M97 99 Q100 95 103 99"/><path d="M67 98 L55 94"/><path d="M133 98 L145 94"/>
+    </g>
+    <!-- nose, cheeks, moustache, smile -->
+    <ellipse cx="100" cy="120" rx="8" ry="10" fill="#e3a98a"/>
+    <circle cx="72" cy="124" r="7" fill="#e79a8a" opacity=".45"/><circle cx="128" cy="124" r="7" fill="#e79a8a" opacity=".45"/>
+    <path d="M100 129 C90 126 76 130 72 140 C82 136 92 140 100 134 C108 140 118 136 128 140 C124 130 110 126 100 129 Z" fill="#f3efe6"/>
+    <path d="M90 145 Q100 151 110 145" stroke="#a5604b" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <!-- a book in his hands -->
+    <rect x="66" y="214" width="68" height="36" rx="3" style="fill:var(--held)"/>
+    <rect x="66" y="214" width="68" height="5" fill="#fff" opacity=".8"/>
+    <ellipse cx="66" cy="230" rx="10" ry="8" fill="#f1c7a3"/><ellipse cx="134" cy="230" rx="10" ry="8" fill="#f1c7a3"/>
+  </svg>
+</aside>
+
 <script>
+const DEFAULT_THEME = "pastel";   // the colour scheme: pastel, honey, moonlit, cocoa or painted
 (() => {
   const $ = (id) => document.getElementById(id);
   const el = (tag, text, cls) => { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; };
   const value = (name) => (document.querySelector(`input[name=${name}]:checked`) || {}).value;
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // Each kind of story is a cloth-bound book with its own colour and height.
-  const CLOTH = {
-    auto: ["#3b3424", 200], fairy_tale: ["#8e3b57", 186], magical: ["#5b3c88", 204], calming: ["#2f5f66", 176],
-    good_manners: ["#9a7420", 192], healthy_habits: ["#3f6e3a", 182], animal_friends: ["#8a4b2a", 198],
-    adventure: ["#2e5136", 210], space_science: ["#1f3a6b", 194], funny: ["#c0612b", 180],
-    brave_hearts: ["#7e2a2a", 200], friendship: ["#3d5d8f", 188], custom: ["#6e6a5e", 196],
-  };
-  const state = { storyId: null, name: "", pages: [], at: 0, genreKey: "auto", reading: false };
-
-  // ---------- choosing ----------
-  function radio(name, val, cls, inner) {
-    const label = el("label", null, `choice ${cls}`);
-    const input = document.createElement("input");
-    input.type = "radio"; input.name = name; input.value = val;
-    const span = el("span");
-    span.append(...inner);
-    label.append(input, span);
-    return label;
+  // ---------- the librarian ----------
+  const say = (text) => { $("bubble").textContent = text || ""; };
+  const pupils = [["pupilL", 82, 101], ["pupilR", 118, 101]];
+  function lookAt(x, y) {
+    const box = $("libSvg").getBoundingClientRect();
+    const scale = box.width / 200;
+    for (const [id, cx, cy] of pupils) {
+      const ex = box.left + cx * scale, ey = box.top + cy * scale;
+      const dx = x - ex, dy = y - ey, dist = Math.hypot(dx, dy) || 1;
+      const reach = Math.min(3.6, dist / 40);
+      $(id).setAttribute("cx", cx + dx / dist * reach);
+      $(id).setAttribute("cy", cy + dy / dist * reach);
+    }
   }
+  addEventListener("mousemove", (e) => lookAt(e.clientX, e.clientY), { passive: true });
+  addEventListener("touchstart", (e) => lookAt(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  addEventListener("focusin", (e) => {               // keyboard users: he watches what has focus
+    const r = e.target.getBoundingClientRect();
+    lookAt(r.left + r.width / 2, r.top + r.height / 2);
+  });
+  if (!reduceMotion) {
+    (function blink() {
+      setTimeout(() => {
+        $("libSvg").classList.add("blink");
+        setTimeout(() => { $("libSvg").classList.remove("blink"); blink(); }, 140);
+      }, 3500 + Math.random() * 4000);
+    })();
+  }
+  say("Good evening! Write the child's name, then choose a shelf.");
+
+  // ---------- the bookcase: each kind of story is a shelf of its own books ----------
+  // Colour schemes. Each one sets the sky, the wood, the chosen-shelf colour and ten book colours.
+  const THEMES = {
+    pastel: { name: "Pastel night",
+      books: ["#dcaebb", "#e7c79a", "#ecdcae", "#a9cbb8", "#9fbadb", "#bfaee0", "#d3b5d9", "#dba99c", "#bccfa6", "#a7cfd0"],
+      picks: ["#966fd6", "#a98be0", "#8762c9", "#b89ce8", "#9f7ad9"], vars: {} },
+    honey: { name: "Honey oak & jewel books",
+      books: ["#c97b84", "#c8734f", "#d9a441", "#8fae8b", "#4f8a8b", "#7d5a8c", "#4a6491", "#e8d8b8", "#a3a35a", "#d98e73"],
+      picks: ["#e2b04a", "#d9a441", "#f0c565", "#c99532", "#e8bb57"],
+      vars: { "--sky-1": "#0d1630", "--sky-2": "#18264a", "--sky-3": "#24365f", "--walnut": "#7a4a26", "--walnut-hi": "#9c6334",
+              "--walnut-dark": "#4a2a12", "--back": "#2b1709", "--back-2": "#3d2412", "--purple": "#d9a441",
+              "--purple-deep": "#b8862b", "--accent-text": "#f0cf7f" } },
+    moonlit: { name: "Moonlit blue",
+      books: ["#a9c4e8", "#e8eef8", "#7fa1d6", "#c9d6ea", "#f2e6c4", "#5f7fb8", "#b8c9e3", "#dfe8f5", "#8fb0de", "#f5edd6"],
+      picks: ["#f2d27a", "#e8c25e", "#f7df9a", "#dcb44f", "#f0cc6a"],
+      vars: { "--sky-1": "#08112a", "--sky-2": "#101f42", "--sky-3": "#1a2f5c", "--walnut": "#2b3a5c", "--walnut-hi": "#40547f",
+              "--walnut-dark": "#161f36", "--back": "#0c1428", "--back-2": "#14203b", "--purple": "#e8c25e",
+              "--purple-deep": "#c9a24d", "--accent-text": "#f2d27a" } },
+    cocoa: { name: "Cocoa & blush at dusk",
+      books: ["#f2c4c4", "#d9a066", "#f3e3c3", "#d98c9a", "#f2d58a", "#c97b5a", "#c9a88a", "#f5c9a8", "#b98aa0", "#e6cfa8"],
+      picks: ["#d46a8c", "#e07f9e", "#c45a7c", "#e891ab", "#cf6487"],
+      vars: { "--sky-1": "#1f1733", "--sky-2": "#3b2650", "--sky-3": "#6b3f62", "--walnut": "#3a2418", "--walnut-hi": "#55362a",
+              "--walnut-dark": "#22140c", "--back": "#1e110b", "--back-2": "#2c1a12", "--purple": "#d46a8c",
+              "--purple-deep": "#b04e70", "--accent-text": "#f2a9c0" } },
+    painted: { name: "Painted cream shelves",
+      books: ["#f4a7b9", "#f9c38f", "#f6dc7c", "#9fd8b6", "#94c4ec", "#b9a3e8", "#e3a6e0", "#f39a8c", "#b6d68f", "#8fd6d3"],
+      picks: ["#966fd6", "#a98be0", "#8762c9", "#b89ce8", "#9f7ad9"],
+      vars: { "--sky-1": "#141133", "--sky-2": "#262058", "--sky-3": "#3d3480", "--walnut": "#efe4d2", "--walnut-hi": "#fbf4e8",
+              "--walnut-dark": "#c9b89c", "--back": "#d8c8ae", "--back-2": "#e6d8c0", "--purple": "#966fd6",
+              "--purple-deep": "#7a55bd", "--accent-text": "#7a55bd", "--on-wood": "#4a2e1f" } },
+  };
+  const THEME = THEMES[new URLSearchParams(location.search).get("theme")] || THEMES[DEFAULT_THEME];
+  for (const [k, v] of Object.entries(THEME.vars)) document.documentElement.style.setProperty(k, v);
+  const names = ["pink", "peach", "butter", "mint", "sky", "lavender", "lilac", "coral", "sage", "aqua"];
+  const P = Object.fromEntries(names.map((n, i) => [n, THEME.books[i]]));
+  names.forEach((n, i) => document.documentElement.style.setProperty("--" + n, THEME.books[i]));
+  const ALL = Object.values(P);
+  const SHELF = {          // [face-out cover, spine colours] — all pastel
+    auto:           [P.butter,   ALL],
+    fairy_tale:     [P.pink,     [P.pink, P.lilac, P.butter, P.lavender, P.peach]],
+    magical:        [P.lavender, [P.lavender, P.aqua, P.lilac, P.sky, P.butter]],
+    calming:        [P.sky,      [P.sky, P.mint, P.lavender, P.aqua, P.peach]],
+    good_manners:   [P.peach,    [P.peach, P.coral, P.butter, P.sage, P.pink]],
+    healthy_habits: [P.sage,     [P.sage, P.mint, P.butter, P.peach, P.aqua]],
+    animal_friends: [P.butter,   [P.butter, P.peach, P.sage, P.coral, P.mint]],
+    adventure:      [P.mint,     [P.mint, P.sky, P.coral, P.butter, P.sage]],
+    space_science:  [P.aqua,     [P.aqua, P.sky, P.lavender, P.mint, P.lilac]],
+    funny:          [P.coral,    [P.coral, P.butter, P.aqua, P.pink, P.mint]],
+    brave_hearts:   [P.lilac,    [P.lilac, P.coral, P.peach, P.sky, P.sage]],
+    friendship:     [P.pink,     [P.pink, P.sky, P.mint, P.butter, P.lavender]],
+    custom:         [P.mint,     ALL],
+  };
+  function seeded(key) {                    // the same books on the same shelf every time
+    let h = 2166136261;
+    for (const c of key) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
+    return () => ((h = Math.imul(h ^ (h >>> 13), 1274126177)) >>> 0) / 4294967296;
+  }
+  function vol(colour, w, h, cls) {
+    const v = el("span", null, "vol" + (cls ? " " + cls : ""));
+    v.style.setProperty("--c", colour); v.style.setProperty("--w", w + "px"); v.style.setProperty("--h", h + "%");
+    return v;
+  }
+  const PURPLES = THEME.picks;
+  // Every shelf is tidy: one full row of books, edge to edge, with at most one thing at each end
+  // (a pile lying flat, a book facing out, a leaning book, or a little object). What changes from
+  // shelf to shelf is which ends are used and the shape of the row's heights.
+  const LEFT  = [null, "stack", "face", null, "tallstack", null, "stack", "face"];
+  const RIGHT = ["lean", "stack", "tallstack", "lean", "decor", null, "stack", "lean"];
+  const SHAPES = ["even", "down", "up", "arch", "even", "valley"];
+  const DECOR = ["jar"];
+  const END_W = { stack: 50, tallstack: 54, decor: 54, face: 66 };
+  function fillNook(nook, key, index) {
+    const rnd = seeded(key + ":" + index), colours = (SHELF[key] || SHELF.auto)[1];
+    const room = Math.max(120, nook.clientWidth - 24);
+    const sc = Math.min(1.5, Math.max(0.8, room / 190));
+    const auto = key === "auto";
+    const left = auto ? null : LEFT[index % LEFT.length];
+    let right = auto ? null : RIGHT[(index * 3 + 1) % RIGHT.length];
+    if (left === "decor" && right === "decor") right = "stack";
+    let n = (index * 2) % colours.length, k = 0;
+    const book = (w, h, cls) => {
+      const v = vol(colours[n++ % colours.length], Math.round(w), h, cls);
+      v.style.setProperty("--p", PURPLES[k++ % PURPLES.length]);
+      return v;
+    };
+    const leanH = 76, leanDeg = 12;
+    const tip = Math.round(nook.clientHeight * leanH / 100 * Math.sin(leanDeg * Math.PI / 180)) + 2;
+    const endW = (p) => !p ? 0 : p === "lean" ? 15 * sc + tip : END_W[p] * sc;
+    const end = (p) => {
+      if (p === "stack" || p === "tallstack") {
+        const st = el("span", null, "stack");
+        const count = p === "stack" ? 3 : 5;
+        for (let i = 0; i < count; i++) st.appendChild(book((END_W[p] - 4 - (i % 2) * 6) * sc, 0));
+        return st;
+      }
+      if (p === "face") return book(END_W.face * sc - 6, 74, "face");
+      if (p === "lean") {
+        const v = book(15 * sc, leanH, "lean");
+        v.style.setProperty("--r", leanDeg + "deg");
+        v.style.marginRight = tip + "px";
+        return v;
+      }
+      const d = el("span", null, "decor " + DECOR[(index + (key.length % 4)) % DECOR.length]);
+      d.style.setProperty("--s", sc);
+      return d;
+    };
+    // the row fills exactly the space between the ends
+    const GAP = 3;
+    const rowW = room - endW(left) - endW(right) - (left ? 8 : 0) - (right ? 8 : 0);
+    const count = Math.max(4, Math.round(rowW / (18 * sc)));
+    const weights = Array.from({ length: count }, () => 0.8 + rnd() * 0.45);
+    const total = weights.reduce((a, b) => a + b, 0);
+    const shape = SHAPES[(index + key.length) % SHAPES.length];
+    if (left) { const e = end(left); e.style.marginRight = "8px"; nook.appendChild(e); }
+    weights.forEach((wt, i) => {
+      const t = count > 1 ? i / (count - 1) : 0.5;
+      const base = { even: 84, down: 92 - t * 22, up: 70 + t * 22, arch: 72 + Math.sin(t * Math.PI) * 20,
+                     valley: 92 - Math.sin(t * Math.PI) * 18 }[shape];
+      const h = Math.min(94, Math.max(62, base + (rnd() - 0.5) * 8));
+      nook.appendChild(book(wt / total * (rowW - GAP * (count - 1)), h, auto ? "wrapped" : ""));
+    });
+    if (right) { const e = end(right); if (right !== "lean") e.style.marginLeft = "8px"; nook.appendChild(e); }
+    if (auto) nook.appendChild(el("span", "?", "tag"));
+  }
+  function fillBack() {                     // the part of the bookcase behind the librarian, lined up with the rows
+    const back = $("backShelves"), books = $("books");
+    back.replaceChildren();
+    if (!getComputedStyle(back).display || getComputedStyle(back).display === "none") return;
+    const first = books.querySelector(".nook");
+    if (!first) return;
+    const rowH = first.offsetHeight, pitch = rowH + 26;
+    const formTop = $("storyForm").getBoundingClientRect().top;
+    const booksTop = books.getBoundingClientRect().top - formTop;
+    const above = Math.max(0, Math.floor((booksTop - 50) / pitch));
+    back.style.top = (booksTop - above * pitch) + "px";
+    back.style.gridAutoRows = rowH + "px";
+    const keys = Object.keys(SHELF).filter(k => k !== "auto" && k !== "custom");
+    for (let i = 0; i < above + 6; i++) {
+      const nook = el("span", null, "nook");
+      back.appendChild(nook);
+      fillNook(nook, keys[(i * 5 + 3) % keys.length], i + 3);
+    }
+  }
+  function shelveAll() {
+    document.querySelectorAll(".cell").forEach((cell, i) => {
+      const nook = cell.querySelector(".nook");
+      nook.replaceChildren(); fillNook(nook, cell.querySelector("input").value, i);
+    });
+    fillBack();
+  }
+  let resizeTimer;                          // re-shelve when the window changes size
+  addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(shelveAll, 200); });
+  const CLOTH = Object.fromEntries(Object.entries(SHELF).map(([k, v]) => [k, [v[0]]]));
+
+  const state = { storyId: null, name: "", pages: [], at: 0, genreKey: "auto", reading: false };
 
   let genres = [];
   fetch("/api/options").then(r => r.json()).then(opts => {
-    for (let a = opts.minAge; a <= opts.maxAge; a++) $("ages").appendChild(radio("age", a, "age", [String(a)]));
-    genres = opts.genres;
-    for (const g of genres) {
-      const [cloth, h] = CLOTH[g.key] || ["#444", 190];
-      const book = radio("genre", g.key, "book", [g.name]);
-      book.querySelector("span").style.setProperty("--cloth", cloth);
-      book.querySelector("span").style.setProperty("--h", h + "px");
-      book.title = g.blurb;
-      $("books").appendChild(book);
+    for (let a = opts.minAge; a <= opts.maxAge; a++) {
+      const label = el("label", null, "choice age");
+      const input = document.createElement("input");
+      input.type = "radio"; input.name = "age"; input.value = a;
+      label.append(input, el("span", String(a)));
+      $("ages").appendChild(label);
     }
-    $("books").querySelector("input").checked = true;           // "Surprise me"
-    describeChoice();
+    genres = opts.genres;
+    for (const g of genres.filter(g => g.key !== "custom")) {
+      const cell = el("label", null, "choice cell");
+      const input = document.createElement("input");
+      input.type = "radio"; input.name = "genre"; input.value = g.key;
+      const nook = el("span", null, "nook");
+      cell.append(input, nook, el("span", g.name, "plate"));
+      cell.title = g.blurb;
+      $("books").appendChild(cell);
+    }
+    shelveAll();                          // after the shelves are on the page, so the books can size to them
   }).catch(() => showError("formError", "The story server isn't answering. Start it with: python app.py"));
 
-  function describeChoice() {
-    const key = value("genre");
-    const g = genres.find(x => x.key === key);
-    $("chosen").replaceChildren();
-    if (g) $("chosen").append(el("b", g.name), el("span", g.blurb));
-    $("ideaBox").hidden = key !== "custom";
+  // ---------- choosing a shelf: a book comes off it, flies to the middle and opens ----------
+  let flyKey = "auto";
+  function openBook(key, from) {
+    const g = genres.find(x => x.key === key) || { name: "Your own idea", blurb: "" };
+    const custom = key === "custom";
+    const name = $("name").value.trim(), age = value("age");
+    flyKey = key;
+    $("flyTitle").textContent = custom ? "Your own idea" : g.name;
+    $("bookFor").textContent = name ? `a story for ${name}${age ? ", age " + age : ""}` : (age ? `a story for a ${age}-year-old` : "a story for tonight");
+    $("ideaBox").hidden = !custom;
+    $("flybook").style.setProperty("--cloth", (CLOTH[key] || CLOTH.auto)[0]);
+    $("flybook").classList.remove("open", "writing", "ready");
+    $("opened").classList.remove("fading");
+    showError("formError", "");
+    $("opened").hidden = false;
+    document.body.classList.add("bookopen");
+    requestAnimationFrame(() => $("opened").classList.add("night"));     // the room fades into the night sky
+    const ready = () => (custom ? $("idea") : $("makeBtn")).focus({ preventScroll: true });
+    if (reduceMotion || !from) return ready();
+    const book = $("flybook"), to = book.getBoundingClientRect(), r = from.getBoundingClientRect();
+    const fly = book.animate([
+      { transform: `translate(${r.left - to.left}px, ${r.top - to.top}px) scale(${r.width / to.width}, ${r.height / to.height})` },
+      { transform: `translate(${(r.left - to.left) * 0.35}px, ${(r.top - to.top) * 0.35 - 40}px) scale(0.75) rotate(-4deg)`, offset: 0.6 },
+      { transform: "none" }], { duration: 900, easing: "cubic-bezier(.3,.7,.2,1)" });
+    fly.finished.then(ready).catch(ready);
   }
-  $("books").addEventListener("change", () => {
-    describeChoice();
-    if (value("genre") === "custom") $("idea").focus();
+  // the story has arrived: the cover gets its title, then the book opens onto the first page
+  function openStory(s) {
+    $("flyTitle").textContent = s.title;
+    $("titlePage").replaceChildren(titlePageContent(s.title));
+    $("firstPage").replaceChildren(...pageNode(1).childNodes);
+    $("flybook").classList.add("ready");
+    $("flybook").classList.remove("writing");
+    const wait = (ms) => new Promise(r => setTimeout(r, reduceMotion ? 0 : ms));
+    return wait(500).then(() => { $("flybook").classList.add("open"); return wait(1500); }).then(() => {
+      // Where the open book is now: two pages wide (the cover swung left), or one on phones.
+      const r = $("flybook").getBoundingClientRect();
+      const wide = !matchMedia("(max-width: 760px)").matches;
+      const from = wide ? { left: r.left - r.width, top: r.top, width: r.width * 2, height: r.height } : r;
+      show("reader", true); render();
+      $("opened").classList.add("fading");                               // the open book gives way to the reader
+      if (!reduceMotion) {
+        // FLIP: start the reader's book exactly over the open book, then ease it to its place,
+        // so the book grows smoothly instead of jumping to its new size.
+        const to = $("spread").getBoundingClientRect();
+        const k = from.width / to.width;
+        const dx = (from.left + from.width / 2) - (to.left + to.width / 2);
+        const dy = (from.top + from.height / 2) - (to.top + to.height / 2);
+        $("spread").animate([{ transform: `translate(${dx}px, ${dy}px) scale(${k})` }, { transform: "none" }],
+                            { duration: 700, easing: "cubic-bezier(.3,.7,.2,1)" });
+        for (const id of ["prevBtn", "nextBtn"]) $(id).animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700 });
+      }
+      return wait(700);
+    }).then(() => {
+      $("opened").hidden = true;
+      $("opened").classList.remove("night", "fading");
+      $("flybook").classList.remove("open");
+    });
+  }
+  function closeBook() {
+    if ($("flybook").classList.contains("writing")) return;
+    $("opened").hidden = true;
+    $("opened").classList.remove("night");
+    document.body.classList.remove("bookopen");
+  }
+  $("closeBook").addEventListener("click", closeBook);
+  $("opened").addEventListener("click", (e) => { if (e.target === $("opened")) closeBook(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("opened").hidden) closeBook(); });
+  // clicking a shelf (even the one already chosen) takes a book off it
+  document.querySelector(".form").addEventListener("click", (e) => {
+    const input = e.target.closest("input[name=genre]");
+    if (!input) return;
+    const holder = input.closest(".cell, .desk");
+    const vols = holder.querySelectorAll(".vol:not(.stack .vol)");
+    const from = vols.length ? vols[Math.floor(vols.length / 2)] : holder;
+    requestAnimationFrame(() => openBook(input.value, from));
+  });
+  document.querySelector(".form").addEventListener("change", (e) => {
+    if (e.target.name === "age") say(`Age ${e.target.value}. Now choose a shelf.`);
   });
   $("idea").addEventListener("input", () => { $("ideaCount").textContent = $("idea").value.length; });
 
   // ---------- views ----------
-  function show(view) {
-    for (const id of ["storyForm", "waiting", "coverView", "reader"]) $(id).hidden = id !== view;
-    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  const LINES = { waiting: "Let me find just the right words…" };
+  function show(view, instant) {
+    for (const id of ["storyForm", "waiting", "reader"]) $(id).hidden = id !== view;
+    document.body.classList.toggle("reading", view === "reader" || view === "waiting");
+    if (view !== "storyForm") document.body.classList.remove("bookopen");
+    if (LINES[view]) say(LINES[view]);
+    else if (view === "storyForm") say("Another one? Choose a shelf.");
+    window.scrollTo({ top: 0, behavior: reduceMotion || instant ? "auto" : "smooth" });
   }
   function showError(id, msg) { $(id).textContent = msg || ""; }
   function paintCloth(key) {
     const cloth = (CLOTH[key] || CLOTH.auto)[0];
-    for (const id of ["cover", "waitCover"]) $(id).style.setProperty("--cloth", cloth);
+    $("waitCover").style.setProperty("--cloth", cloth);
   }
 
   // ---------- talking to the server ----------
@@ -378,11 +1085,20 @@
                     "Turning down the corners…", "Stamping the cover…", "Nearly ready…"];
   async function follow(job) {
     let tick = 0;
-    $("whisper").textContent = WHISPERS[0];
+    const whisper = (t) => { $("whisper").textContent = t; $("bookWhisper").textContent = t; };
+    whisper(WHISPERS[0]);
+    $("bookSteps").replaceChildren();
+    let shown = 0;
     for (;;) {
       await new Promise(r => setTimeout(r, 800));
-      if (++tick % 6 === 0) $("whisper").textContent = WHISPERS[Math.min(tick / 6, WHISPERS.length - 1)];
       const data = await (await fetch(`/api/job/${job}`)).json();
+      // the storyteller's real steps (sent by the agent as "✦ ..."), newest last
+      const steps = (data.events || []).map(e => e.msg).filter(m => m.startsWith("\u2726 ")).map(m => m.slice(2));
+      if (steps.length > shown) {
+        shown = steps.length;
+        whisper(steps[steps.length - 1]);
+        $("bookSteps").replaceChildren(...steps.slice(-4).map((t, i, a) => el("li", t, i === a.length - 1 ? "now" : "")));
+      } else if (!steps.length && ++tick % 6 === 0) whisper(WHISPERS[Math.min(tick / 6, WHISPERS.length - 1)]);
       if (data.status === "done") return data.result;
       if (data.status === "error") throw new Error(data.error);
     }
@@ -391,51 +1107,65 @@
   $("storyForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     showError("formError", "");
-    const body = { name: $("name").value.trim(), age: value("age"), genre: value("genre"), idea: $("idea").value.trim() };
-    if (!body.age) return showError("formError", "Choose the listener's age.");
+    const body = { name: $("name").value.trim(), age: value("age"), genre: value("genre") || "auto",
+                   idea: $("idea").value.trim(), today: $("today").value.trim() };
+    if (!body.age) return showError("formError", "Choose an age on the library card first.");
     if (body.genre === "custom" && !body.idea) return showError("formError", "Write what the story should be about.");
     state.name = body.name;
     state.genreKey = body.genre;
     $("makeBtn").disabled = true;
+    $("flybook").classList.add("writing");
+    showError("formError", "");
     try {
       const job = await post("/api/story", body);
       paintCloth(body.genre);
-      $("waitFor").textContent = body.name ? `a story for ${body.name}` : "a story for tonight";
-      show("waiting");
-      showBook(await follow(job));
+      const story = await follow(job);
+      prepareBook(story);
+      await openStory(story);
+      $("readBtn").focus({ preventScroll: true });
     } catch (err) {
-      show("storyForm");
       showError("formError", err.message);
     } finally {
       $("makeBtn").disabled = false;
+      $("flybook").classList.remove("writing");
     }
   });
 
   // ---------- the finished book ----------
-  function showBook(s) {
+  function prepareBook(s) {
     stopReading();
     state.storyId = s.story_id;
     state.genreKey = s.genre_key || state.genreKey;
-    state.pages = s.pages;
+    state.pages = [null, ...s.pages];       // a title page first, then the story
+    state.title = s.title;
     state.at = 0;
     paintCloth(state.genreKey);
-    $("coverTitle").textContent = s.title;
-    $("coverFor").textContent = state.name ? `a story for ${state.name}` : `a ${s.genre.toLowerCase()} story`;
     $("readerTitle").textContent = s.title;
     $("notes").replaceChildren(...(s.notes || []).map(n => el("p", n.startsWith("I'll") ? n : `Made gentler for bedtime: ${n}`, "note")));
     $("change").value = "";
     showError("changeError", s.unchanged ? "The story stayed the same. Describe a change to the story itself." : "");
-    show("coverView");
-    $("openBtn").focus();
   }
-  $("openBtn").addEventListener("click", () => { show("reader"); render(); });
+  function showBook(s) {
+    prepareBook(s);
+    show("reader");
+    render();
+    $("readBtn").focus({ preventScroll: true });
+  }
+  function titlePageContent(title) {
+    const box = el("div", null, "title-page");
+    const h = el("h2"); h.appendChild(el("span", title, "s"));
+    box.append(el("span", null, "moon small"), h,
+               el("p", state.name ? `a story for ${state.name}` : "a story for tonight", "for"), el("p", "✦", "end-mark"));
+    return box;
+  }
 
   const perView = () => (matchMedia("(max-width: 760px)").matches ? 1 : 2);
   function sentences(text) {
     return text.match(/[^.!?…]+(?:[.!?…]+["”’)]*|$)\s*/g) || [text];
   }
   function pageNode(i) {
-    const page = el("div", null, "page" + (i === 0 ? " first" : ""));
+    const page = el("div", null, "page" + (i === 1 ? " first" : ""));
+    if (state.pages[i] === null) { page.classList.add("titled"); page.appendChild(titlePageContent(state.title)); return page; }
     if (i < state.pages.length) {
       for (const para of state.pages[i].split(/\n+/).filter(t => t.trim())) {
         const p = el("p");
@@ -443,7 +1173,7 @@
         page.appendChild(p);
       }
       if (i === state.pages.length - 1) page.append(el("p", "✦ ✦ ✦", "end-mark"), el("p", "The End", "end"));
-      page.appendChild(el("span", String(i + 1), "folio"));
+      page.appendChild(el("span", String(i), "folio"));
     }
     return page;
   }
@@ -454,9 +1184,8 @@
     spread.className = "spread" + (dir ? ` turn-${dir}` : "");
     spread.replaceChildren(...Array.from({ length: n }, (_, k) => pageNode(state.at + k)));
     const last = Math.min(state.at + n, state.pages.length);
-    $("pageCount").textContent = n === 1 || last === state.at + 1
-      ? `Page ${state.at + 1} of ${state.pages.length}`
-      : `Pages ${state.at + 1}–${last} of ${state.pages.length}`;
+    const total = state.pages.length - 1, lo = Math.max(1, state.at), hi = Math.max(1, last - 1);
+    $("pageCount").textContent = lo === hi ? `Page ${hi} of ${total}` : `Pages ${lo}–${hi} of ${total}`;
     $("prevBtn").disabled = state.at === 0;
     $("nextBtn").disabled = last >= state.pages.length;
     $("after").hidden = last < state.pages.length;
@@ -491,35 +1220,21 @@
   const synth = window.speechSynthesis;
   const NICE = ["Premium", "Enhanced", "Natural", "Ava", "Zoe", "Allison", "Samantha", "Serena", "Susan",
                 "Karen", "Moira", "Tessa", "Fiona", "Kate", "Aria", "Jenny", "Libby", "Sonia",
-                "Google UK English Female", "Google US English"];
+                "Google UK English Female", "Google US English", "Female", "Zira", "Hazel"];
   const niceness = (v) => NICE.reduce((score, w, i) => v.name.includes(w) ? score + (NICE.length - i) : score, 0);
   const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
                   set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
   const voices = () => (synth ? synth.getVoices() : []).filter(v => v.lang && v.lang.startsWith("en"))
                                                      .sort((a, b) => niceness(b) - niceness(a));
 
+  let bestVoice = null;
   function fillVoices() {
-    const sel = $("voiceSel"), list = voices();
-    const keep = sel.value || store.get("voice");
-    sel.replaceChildren(...list.map(v => new Option(v.name.replace(/\s*\((?:English|en)[^)]*\)/i, ""), v.name)));
-    if (!list.length) sel.add(new Option("No voices on this computer", ""));
-    sel.value = list.some(v => v.name === keep) ? keep : (list[0] ? list[0].name : "");
-    $("readBtn").disabled = !list.length;
-    // No smooth voice yet? Say where to get one - for this kind of computer.
-    const smooth = list.some(v => /Premium|Enhanced|Natural|Google/.test(v.name));
-    const ua = navigator.userAgent;
-    const tip = /Mac/.test(ua)
-        ? "For a softer voice: System Settings › Accessibility › Spoken Content › System Voice › Manage Voices, then download a Premium voice such as Ava or Zoe."
-      : /Windows/.test(ua)
-        ? "For a softer, more natural voice, open this page in Microsoft Edge (voices such as Aria or Jenny)."
-        : "For a softer voice, open this page in Google Chrome or Microsoft Edge.";
-    $("voiceNote").textContent = !list.length
-      ? "This computer has no reading voices. " + tip
-      : (smooth ? "" : tip);
+    bestVoice = voices()[0] || null;
+    $("readBtn").disabled = !bestVoice;
+    $("readBtn").title = bestVoice ? "Read aloud" : "This browser has no reading voice";
   }
   fillVoices();
   if (synth && synth.addEventListener) synth.addEventListener("voiceschanged", fillVoices);
-  $("voiceSel").addEventListener("change", () => { store.set("voice", $("voiceSel").value); stopReading(); });
 
   let run = 0;
   function mark(span) {
@@ -528,7 +1243,7 @@
   }
   function speak(spans, token) {
     return new Promise((resolve) => {
-      const v = synth.getVoices().find(x => x.name === $("voiceSel").value);
+      const v = bestVoice;
       let i = 0;
       const next = () => {
         if (token !== run) return resolve(false);
@@ -559,22 +1274,17 @@
     state.reading = false;
     if (synth) synth.cancel();
     mark(null);
-    $("readBtn").textContent = "Read to me";
-    $("stopBtn").hidden = true;
+    $("readBtn").classList.remove("on");
+    $("readBtn").setAttribute("aria-label", "Read the story aloud");
   }
   $("readBtn").addEventListener("click", () => {
     if (!synth) return;
-    if (state.reading) {                                    // pause and carry on
-      if (synth.paused) { synth.resume(); $("readBtn").textContent = "Pause"; }
-      else { synth.pause(); $("readBtn").textContent = "Keep reading"; }
-      return;
-    }
+    if (state.reading) return stopReading();               // the mic again stops the reading
     state.reading = true;
-    $("readBtn").textContent = "Pause";
-    $("stopBtn").hidden = false;
+    $("readBtn").classList.add("on");
+    $("readBtn").setAttribute("aria-label", "Stop reading");
     readAloud();
   });
-  $("stopBtn").addEventListener("click", stopReading);
 
   // ---------- changes ----------
   for (const text of ["Make it funnier", "Make it calmer", "Make it shorter", "Add a friendly dragon"]) {

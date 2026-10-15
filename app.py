@@ -20,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from bedtime.config import AUTO, CUSTOM, GENRE_BLURBS, GENRES, MAX_AGE, MIN_AGE
-from bedtime.guard import MAX_FEEDBACK, MAX_IDEA, InvalidName, clean_name
+from bedtime.guard import MAX_FEEDBACK, MAX_IDEA, MAX_TODAY, InvalidName, clean_name
 from bedtime.llm import APIUnavailable, LLMFormatError, MissingAPIKey
 from bedtime.models import Listener, Request, StoryBlocked, StoryResult, StoryUnsafe
 from bedtime.pipeline import ModelRefused, apply_feedback, create_story
@@ -120,7 +120,10 @@ def parse_story_request(data: dict) -> tuple[Listener, Request]:
         raise BadRequest("Tell me what the story should be about.")
     if len(idea) > MAX_IDEA:
         raise BadRequest(f"Please keep the idea under {MAX_IDEA} characters.")
-    return Listener(age=age, name=name), Request(genre=genre, idea=idea)
+    today = str(data.get("today") or "").strip()      # something from the child's day (optional)
+    if len(today) > MAX_TODAY:
+        raise BadRequest(f"Please keep 'today' under {MAX_TODAY} characters.")
+    return Listener(age=age, name=name, today=today), Request(genre=genre, idea=idea)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -154,7 +157,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- routes ----
     def do_GET(self) -> None:
-        if self.path in ("/", "/index.html"):
+        if self.path.split("?", 1)[0] in ("/", "/index.html"):
             body = (WEB_DIR / "index.html").read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -240,9 +243,11 @@ class Handler(BaseHTTPRequestHandler):
 def main() -> None:
     parser = argparse.ArgumentParser(description="Bedtime Story Maker (web)")
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--host", default="127.0.0.1",
+                        help="address to listen on (use 0.0.0.0 inside Docker)")
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
     url = f"http://127.0.0.1:{args.port}"
     print(f"\n🌙  Bedtime Story Maker is running at {url}  (Ctrl+C to stop)\n")
     if not args.no_browser:

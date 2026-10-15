@@ -18,6 +18,11 @@ CORE_MODEL = "gpt-3.5-turbo"
 # Checks and judge (the agent's own budgets live in bedtime/agent.py)
 # --------------------------------------------------------------------------- #
 QUALITY_PASS = 8.0         # score out of 10 needed to pass
+# How the Storyteller writes: "whole" (a head writer's beat sheet with the real
+# jokes, three whole drafts at once, the side-by-side judge picks one) or "room"
+# (the writers' room: four planning specialists, five section writers, scene by
+# scene). Set BEDTIME_MODE=room to use the writers' room.
+STORY_MODE = os.getenv("BEDTIME_MODE", "whole").strip().lower()
 WORD_TOLERANCE = 0.20      # +/- 20% of the age's target, always inside 500-800
 
 # Temperatures: screening and judging run cold for consistency; the agent runs warm.
@@ -281,7 +286,7 @@ GENRES = {
                "a balloon ride to deliver a birthday cake",
                "finding the way back to a lost kite",
                "a camping trip in the back garden",
-               "a raft trip down a slow, wide river with Dad",
+               "a picnic on the riverbank with Dad, counting boats",
                "climbing a hill to see the town from the top",
                "following muddy footprints to find who ate the strawberries",
                "a canoe trip to an island where only rabbits live",
@@ -360,16 +365,16 @@ GENRE_MENU = list(GENRES)          # index 0 -> menu option 1
 
 # One-line descriptions for the genre picker on the web page.
 GENRE_BLURBS = {
-    "fairy_tale": "Castles, kind royals, a little enchantment",
-    "magical": "Enchanted forests, wishes and gentle wizards",
-    "calming": "Slow, soft and sleepy - almost no conflict",
+    "fairy_tale": "Kind heroes, castles and a little enchantment",
+    "magical": "Everyday life with one piece of gentle magic",
+    "calming": "Slow, soft and sleepy - almost nothing goes wrong",
     "good_manners": "Sharing, sorry and thank you, without preaching",
-    "healthy_habits": "Teeth, veggies and bedtime, made fun",
-    "animal_friends": "Cozy creatures with big personalities",
-    "adventure": "A tiny adventure close to bed",
-    "space_science": "The night sky, with real facts",
+    "healthy_habits": "Teeth, baths and vegetables, made fun",
+    "animal_friends": "Animals with big personalities who help each other",
+    "adventure": "Maps, rafts and hills to climb - and home to bed",
+    "space_science": "Rockets, robots and real science",
     "funny": "Silly mix-ups and giggles",
-    "brave_hearts": "Facing a worry, like the dark or a new school",
+    "brave_hearts": "Facing a real worry, bit by bit",
     "friendship": "Making friends and making up",
 }
 AUTO, CUSTOM = "auto", "custom"

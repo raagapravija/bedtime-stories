@@ -115,8 +115,35 @@ def _split_safety(items, quality_keys, story_text: str) -> tuple[list[str], list
     return _format_issues(safety), _format_issues(style)
 
 
-def judge(llm: LLM, brief: Brief, story: Story) -> Verdict:
+def confirm_safety(llm: LLM, brief: Brief, story: Story, issues: list[str]) -> tuple[list[str], list[str]]:
+    """A second opinion on each LLM safety flag (not on the code's own checks).
+    Fail closed: if the double-check can't be read, the flag stays."""
+    kept, dropped = [], []
+    for issue in issues:
+        if issue.startswith("The review could not be completed"):
+            kept.append(issue)
+            continue
+        try:
+            data = call_json(llm, prompts.safety_check_prompt(brief.listener.age, brief.tier.rules_text(), issue,
+                                                              story.text), prompts.SAFETY_CHECK_SYSTEM,
+                             temperature=0.0, max_tokens=120)
+            real = str(data.get("real", "yes")).strip().lower().startswith("y")
+        except LLMFormatError:
+            real = True
+        (kept if real else dropped).append(issue)
+    return kept, dropped
+
+
+def judge(llm: LLM, brief: Brief, story: Story, ask_model: bool = True) -> Verdict:
+    """Code checks, then the LLM judge. With ask_model=False only the code runs:
+    used while the story's length is still wrong, when the judge's opinion would
+    be wasted (a real run made 13 slow reviews of a 160-300 word story). Such a
+    verdict is marked judged=False and can never be the story that is handed over."""
     code_safety, code_issues = code_checks(brief, story)
+    if not ask_model:
+        return Verdict(safety_issues=code_safety, code_issues=code_issues,
+                       quality_score=editor_score({}, code_issues), quality_fixes=[], answers={},
+                       critique="", judged=False)
     questions = prompts.quality_questions(brief)
     try:
         data = call_json(llm, prompts.judge_prompt(brief, story), prompts.JUDGE_SYSTEM,
@@ -128,6 +155,8 @@ def judge(llm: LLM, brief: Brief, story: Story) -> Verdict:
         data = {"answers": {}}
         llm_safety, style_notes = ["The review could not be completed; re-check the whole story against the rules."], []
 
+    llm_safety, dropped = confirm_safety(llm, brief, story, llm_safety)
+    style_notes = style_notes + dropped
     given = data.get("answers") if isinstance(data.get("answers"), dict) else {}
     # A question the judge skipped counts as "no" - strict, never a free pass.
     answers = {k: str(given.get(k, "no")).strip().lower().startswith("y") for k in questions}
@@ -144,3 +173,23 @@ def judge(llm: LLM, brief: Brief, story: Story) -> Verdict:
         answers=answers,
         critique=str(data.get("critique", "")),
     )
+
+
+
+def compare(llm: LLM, age: int, story_a: Story, story_b: Story) -> dict[str, str]:
+    """Side-by-side judgement on plot, creativity, development, language and
+    bedtime fit. Asked twice with the order swapped; a win counts only when both
+    answers agree (otherwise "tie") - LLM judges favour whichever comes first."""
+    def ask(a: Story, b: Story) -> dict:
+        try:
+            return call_json(llm, prompts.pairwise_prompt(age, a.formatted(), b.formatted()),
+                             prompts.PAIRWISE_SYSTEM, temperature=0.0, max_tokens=200)
+        except LLMFormatError:
+            return {}
+    first, second = ask(story_a, story_b), ask(story_b, story_a)
+    out = {}
+    for k in prompts.PAIRWISE_DIMENSIONS:
+        x = str(first.get(k, "")).strip().upper()[:1]
+        y = {"A": "B", "B": "A"}.get(str(second.get(k, "")).strip().upper()[:1], "")
+        out[k] = x if x in ("A", "B") and x == y else "tie"
+    return out

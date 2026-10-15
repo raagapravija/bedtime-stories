@@ -254,14 +254,15 @@ def is_refusal(reply: str) -> bool:
 # 3. Public API
 # --------------------------------------------------------------------------- #
 def create_story(listener: Listener, request: Request, *, llm: Optional[LLM] = None,
-                 on_event: Events = _quiet, rng: Optional[random.Random] = None) -> StoryResult:
+                 on_event: Events = _quiet, rng: Optional[random.Random] = None,
+                 mode: str = "") -> StoryResult:
     from .agent import run_storyteller
     llm = llm or call_model
     brief = classify(llm, listener, request, rng)
     if brief.concerns:
         on_event("Softened for bedtime: " + "; ".join(brief.concerns))
     on_event(f"Genre: {brief.genre.name} · age {listener.age} · ~{brief.word_target} words")
-    result = run_storyteller(llm, brief, on_event=on_event)
+    result = run_storyteller(llm, brief, on_event=on_event, mode=mode)
     if not result.best.verdict.safe:
         raise StoryUnsafe("; ".join(result.best.verdict.safety_issues))
     return result

@@ -10,14 +10,14 @@ import re
 import pytest
 
 from bedtime import prompts
-from bedtime.agent import (MAX_TOOL_CALLS, MAX_TURNS, Storyteller, clean_story_text,
+from bedtime.agent import (MAX_TOOL_CALLS, MAX_TURNS, STUCK_LIMIT, Storyteller, clean_story_text,
                            plan_problems, run_storyteller)
 from bedtime.config import GENRES, QUALITY_PASS
 from bedtime.llm import LLMFormatError
 from bedtime.models import Brief, Listener, Request
 from bedtime.pipeline import apply_feedback, create_story
-from fakes import (FakeLLM, agent_turn, brief_json, good_agent, judge_json, plan_from_task,
-                   story_text)
+from fakes import (FakeLLM, agent_turn, brief_json, default_writer, good_agent, judge_json, listener_json, pitch_turn,
+                   pitches_for, plan_from_task, story_text)
 
 
 def good_llm(**over):
@@ -57,39 +57,36 @@ def test_agent_plans_writes_reviews_and_finishes_by_itself():
     llm = good_llm()
     events = []
     result = create_story(listener(), Request("calming", ""), llm=llm, on_event=events.append)
-    assert tools_called(llm) == ["search_library", "check_plan", "write_part", "write_part",
-                                 "review_story", "finish"]
+    assert tools_called(llm) == ["browse_ideas", "pitch_ideas", "search_library", "plan_story"] + \
+        ["write_part"] * 3 + ["review_story", "read_aloud", "finish"]
     assert 500 <= result.story.word_count <= 800
     assert result.best.verdict.passed(QUALITY_PASS)
     assert result.example and result.passages and result.plan["events"]
     assert [line.split(":")[0].split(" ")[0] for line in result.agent_log] == \
-        ["read", "plan", "wrote", "wrote", "reviewed", "finished"]
+        ["browsed", "pitched", "read", "plan"] + ["wrote"] * 3 + ["reviewed", "read", "finished"]
     assert any(e.startswith("Storyteller: finished") for e in events)
 
 
-@pytest.mark.parametrize("age", [5, 6, 7, 8, 9, 10])
-def test_every_age_lands_in_500_to_800_words(age):
-    result = create_story(listener(age=age), Request("calming", ""), llm=good_llm())
-    assert 500 <= result.story.word_count <= 800
-    assert len(result.story.pages) == result.brief.pages
-
-
-def test_story_text_comes_in_plain_messages_not_tool_arguments():
-    # Long text with quotes breaks gpt-3.5's tool-call JSON, so the story is written
-    # as a normal message right after write_part.
+def test_scenes_are_written_by_the_scene_writer_never_in_tool_arguments():
+    # Real trace: writing inside the agent conversation, gpt-3.5 copied its own plan
+    # sentences as the story (~40 words per event, no talking). A focused writer call
+    # with the library example as its own earlier story writes each scene instead.
     llm = good_llm()
     create_story(listener(), Request("calming", ""), llm=llm)
-    msgs = llm.agent_messages
-    i = next(k for k, m in enumerate(msgs) if m.get("role") == "tool" and "Write events 1 to" in m["content"])
-    assert msgs[i + 1]["role"] == "assistant" and '"Look, Bob!"' in msgs[i + 1]["content"]
-    assert msgs[i + 2]["content"].startswith("Added ")
+    args = [c["function"]["arguments"] for m in llm.agent_messages if m.get("role") == "assistant"
+            for c in (m.get("tool_calls") or [])]
+    assert not any('"Look, Bob!"' in a for a in args)             # story text never travels in arguments
+    i = next(k for k, c in enumerate(llm.calls) if c[0] == "write")
+    assert llm.examples[i] and "Little Hen" in llm.examples[i][0][1]  # the example, as its own earlier story
+    assert "<editor_note>" in llm.calls[i][2] and "at least 4 short lines" in llm.calls[i][2]
+    assert any(r.startswith("WROTE events 1-3") and "[PASSAGE 1 - event 1]" in r for r in tool_results(llm))
 
 
 # --------------------------------------------------------- tone + copying ---
 def test_the_example_matches_age_and_mood_and_is_fenced():
     llm = good_llm()
     create_story(listener(age=9), Request("space_science", ""), llm=llm)
-    result = tool_results(llm)[0]
+    result = tool_results(llm)[2]
     assert '"The Secret Garden"' in result and "<example_story>" in result      # 9-10, mystery
     assert "Copy only the way it is told" in result
     assert "<example_story>" in prompts.UNTRUSTED_TAGS
@@ -124,14 +121,29 @@ def test_finish_is_refused_for_a_story_that_copies_the_example():
 
 
 # --------------------------------------------------------------- planning ---
-def test_check_plan_needs_the_example_first():
-    llm = good_llm(agent=then(agent_turn("check_plan", title="x", characters=["a"], events=["a b c d"])))
+def test_planning_needs_the_seeds_the_listeners_choice_and_the_example_first():
+    llm = good_llm(agent=then(agent_turn("pitch_ideas", pitches=pitches_for("Mia")),
+                              agent_turn("plan_story"),
+                              agent_turn("browse_ideas"),
+                              pitch_turn,
+                              agent_turn("plan_story", note="x")))
     create_story(listener(), Request("calming", ""), llm=llm)
-    assert tool_results(llm)[0].startswith("Refused: call search_library first")
+    results = tool_results(llm)
+    assert results[0].startswith("Refused: call browse_ideas first")
+    assert results[1].startswith("Refused: call pitch_ideas first")
+    assert results[3].startswith("THE LISTENER CHOSE")
+    assert results[4].startswith("Refused: call search_library first")
+
+
+@pytest.mark.parametrize("age", [5, 6, 7, 8, 9, 10])
+def test_every_age_lands_in_500_to_800_words(age):
+    result = create_story(listener(age=age), Request("calming", ""), llm=good_llm())
+    assert 500 <= result.story.word_count <= 800
+    assert len(result.story.pages) == result.brief.pages
 
 
 @pytest.mark.parametrize("events,expected", [
-    (["Mia finds a shell on the beach"] * 2 + ["Mia falls asleep in bed"], "Use 7-"),
+    (["Mia finds a shell on the beach"] * 2 + ["Mia falls asleep in bed"], "beats (you have"),
     (["Mia finds a red shell on the beach", "Mia finds a blue shell on the beach"], "nearly the same"),
     (["Mia hops", "Mia fell asleep on the sofa", "Mia plays"], "falling asleep"),
     (["Mia plays in the park all day long"], "last event must be the hero back in bed"),
@@ -152,7 +164,6 @@ def test_plan_must_include_the_listener_and_the_parents_characters():
     assert "Mia is listening" in problems and "Andy the ant" in problems
 
 
-# ---------------------------------------------------------------- writing ---
 def test_write_part_is_refused_until_the_plan_passes_and_goes_in_order():
     llm = good_llm(agent=then(agent_turn("write_part", first_event=1, last_event=3)))
     create_story(listener(), Request("calming", ""), llm=llm)
@@ -160,7 +171,7 @@ def test_write_part_is_refused_until_the_plan_passes_and_goes_in_order():
     t = Storyteller(llm, Brief(listener=listener(), genre=GENRES["calming"], story_request="x"))
     t.plan_ok, t.events = True, ["e"] * 8
     assert t.write_part(3, 4).startswith("Refused: the next event to write is 1")
-    assert "events 1 to 4" in t.write_part(1, 9)                 # at most 4 at a time
+    assert t.write_part(1, 9).startswith("WROTE events 1-3")       # at most 3 scenes at a time
 
 
 def test_chatter_around_story_text_is_stripped():
@@ -173,55 +184,48 @@ def test_chatter_around_story_text_is_stripped():
     "I'm ready for the task! Please go ahead and provide the plan.",        # real reply
 ])
 def test_refusals_and_chatter_are_never_accepted_as_story(reply):
-    def chatter_once(messages):
-        if "Write events" in (messages[-1].get("content") or "") and not chatter_once.done:
-            chatter_once.done = True
-            return {"content": reply, "tool_calls": []}
-        return good_agent(messages)
-    chatter_once.done = False
-    llm = good_llm(agent=chatter_once)
+    llm = good_llm(write=[reply, default_writer])
     result = create_story(listener(), Request("calming", ""), llm=llm)
-    assert any(m.get("content") == "That was not story text. Write ONLY the story text now, nothing else."
-               for m in llm.agent_messages)
+    assert "that was not story text" in llm.prompts_for("write")[1]
     assert "sorry" not in result.story.text.lower() and "ready for the task" not in result.story.text
 
 
 def test_text_that_retells_the_story_is_not_accepted():
     # Real failure: the same moment told four times ("Sophie peeked under the bed").
-    t = Storyteller(good_llm(), Brief(listener=listener(), genre=GENRES["calming"], story_request="x"))
-    t.plan_ok, t.events = True, ["e"] * 8
-    t.write_part(1, 4)
-    t.pending.words = 50                       # this test is about retelling, not length
     first = ("Sophie snuggled next to Mum in bed and heard a soft tapping on the window.\n\n"
              '"Maybe it\'s a friendly bird saying goodnight," Mum said with a little smile.\n\n'
-             "Sophie tiptoed over to the window, trying very hard not to make a sound.\n\n"
+             '"Can we look?" Sophie asked. "Just one peek," Mum said. "Shh," said Sophie.\n\n'
              "And there, on the windowsill, sat a tiny brown owl with big round eyes.")
-    assert t.take_text(first).startswith("Added")
-    t.write_part(5, 8)
-    t.pending.words = 50
-    assert t.take_text(first).startswith("Not accepted: it retells")
-    assert t.written == 4
+    t = Storyteller(good_llm(write=first), Brief(listener=listener(), genre=GENRES["calming"], story_request="x"))
+    t.plan_ok, t.events = True, ["Sophie hears a tap", "Sophie meets an owl"] + ["e"] * 6
+    assert t.write_part(1, 1).startswith("WROTE")
+    reply = t.write_part(2, 2)
+    assert reply.startswith("Could not write event 2") and "retells what already happened" in reply
+    assert t.written == 1
 
 
 def test_words_unsafe_for_the_age_are_not_accepted():
-    t = Storyteller(good_llm(), Brief(listener=listener(age=5), genre=GENRES["calming"], story_request="x"))
+    llm = good_llm(write=["A scary ghost came in. " * 6, default_writer])
+    t = Storyteller(llm, Brief(listener=listener(age=5), genre=GENRES["calming"], story_request="x"))
     t.plan_ok, t.events = True, ["e"] * 8
-    t.write_part(1, 4)
-    assert "Not accepted: words not suitable" in t.take_text("A scary ghost came in. " * 6)
+    t.write_part(1, 1)
+    assert "words not suitable" in llm.prompts_for("write")[1]
+    assert "ghost" not in t.passages[0]
 
 
 # -------------------------------------------------------------- finishing ---
 def test_finish_is_refused_until_everything_is_written_and_reviewed():
     llm = good_llm(agent=then(
-        lambda m: agent_turn("search_library", tone="cozy"),
-        lambda m: agent_turn("check_plan", **plan_from_task(m[1]["content"], "Mia")),
+        agent_turn("browse_ideas"),
+        pitch_turn,
+        agent_turn("search_library", tone="cozy"),
+        agent_turn("plan_story"),
         agent_turn("write_part", first_event=1, last_event=4),
-        lambda m: {"content": story_text(300), "tool_calls": []},
         agent_turn("finish", reason="done?"),
     ))
     create_story(listener(), Request("calming", ""), llm=llm)
     refusal = [r for r in tool_results(llm) if r.startswith("Refused")][0]
-    assert "Only 4 of 7 events are written" in refusal
+    assert "Only 3 of 8 events are written" in refusal
 
 
 def test_finish_is_refused_while_unsafe_and_the_agent_fixes_it():
@@ -241,14 +245,16 @@ def test_a_failing_story_cannot_be_finished_while_steps_remain():
 
 
 def test_out_of_range_story_cannot_be_finished_and_add_passage_adds_an_event():
-    t = Storyteller(good_llm(), Brief(listener=listener(), genre=GENRES["calming"], story_request="x"))
+    llm = good_llm()
+    t = Storyteller(llm, Brief(listener=listener(), genre=GENRES["calming"], story_request="x"))
     t.search_library("cozy")
     t.plan_ok, t.events, t.written = True, ["e"], 1
     t.passages = [story_text(120), story_text(60, ending=True)]
     t.review_story()
     assert any("Add a NEW event" in p for p in t.finish_problems())
-    assert "after passage 1" in t.add_passage(2, "x")      # "after the ending" goes just before it
-    assert "<editor_note>a duck visits</editor_note>" in t.add_passage(1, "a duck visits")
+    assert t.add_passage(2, "x").startswith("ADDED passage 2")      # "after the ending" goes just before it
+    t.add_passage(1, "a duck visits")
+    assert "<editor_note>a duck visits</editor_note>" in llm.prompts_for("write")[-1]
 
 
 # ------------------------------------------------------------- guardrails ---
@@ -270,8 +276,9 @@ def test_repeating_the_same_action_is_refused():
     assert tool_results(llm)[1].startswith("Refused: you just did exactly that")
 
 
-def test_out_of_budget_agent_is_finished_by_the_autopilot():
-    # An agent that never does anything useful: the parent still gets a checked story.
+def test_a_stuck_agent_hands_over_to_the_autopilot_early():
+    # An agent that never does anything useful: it is stopped after STUCK_LIMIT refusals
+    # (not after every turn is burned), and the parent still gets a checked story.
     def author(prompt):
         if "Reply with JSON only" in prompt:
             return json.dumps(plan_from_task(prompt, "Mia"))
@@ -279,7 +286,7 @@ def test_out_of_budget_agent_is_finished_by_the_autopilot():
         return story_text(int(m.group(1)) if m else 100, ending="fall" in prompt and "asleep" in prompt)
     llm = good_llm(agent={"content": "Hmm, let me think.", "tool_calls": []}, author=author)
     result = create_story(listener(), Request("calming", ""), llm=llm)
-    assert len([r for r, _, _ in llm.calls if r == "agent"]) == MAX_TURNS
+    assert len([r for r, _, _ in llm.calls if r == "agent"]) == STUCK_LIMIT
     assert any("autopilot" in line for line in result.agent_log)
     assert 500 <= result.story.word_count <= 800 and result.best.verdict.safe
 
@@ -299,7 +306,7 @@ def test_a_crashing_agent_is_replaced_by_the_autopilot():
 
 def test_when_nothing_can_be_written_the_error_is_clear():
     llm = good_llm(agent={"content": "Hmm.", "tool_calls": []},
-                   author="I'm sorry, but I can't continue with this request.")
+                   write="I'm sorry, but I can't continue with this request.")
     with pytest.raises(LLMFormatError):
         create_story(listener(), Request("calming", ""), llm=llm)
 
@@ -356,28 +363,28 @@ def test_every_agent_turn_is_traced(tmp_path, monkeypatch):
 # The judge filed "simplify the language" under safety, so a safe story could never
 # pass ("I couldn't make that story gentle enough"). The writer wrote 88 words when
 # asked for 288, in fancy words, and the children went into the dark woods alone.
-def test_too_short_writing_is_sent_back_once_with_a_clear_ask():
-    t = Storyteller(good_llm(), Brief(listener=listener(age=10), genre=GENRES["calming"], story_request="x"))
+def test_short_writing_is_tried_again_and_the_best_try_is_kept():
+    # Real trace: about 40 words per event. The writer is asked again with the reason;
+    # if it never gets there, the best try is kept and the agent is told what is weak.
+    llm = good_llm(write=story_text(30))
+    t = Storyteller(llm, Brief(listener=listener(age=10), genre=GENRES["calming"], story_request="x"))
     t.plan_ok, t.events = True, ["e"] * 10
-    t.write_part(1, 4)
-    short = story_text(90)
-    reply = t.take_text(short)
-    assert reply.startswith("Too short: you wrote 90 words, but this needs about")
-    assert t.pending is not None                                     # the slot stays open
-    assert t.take_text(story_text(95)).startswith("Added")           # only once - no endless loop
+    reply = t.write_part(1, 1)
+    assert len(llm.prompts_for("write")) == 3 and "too short" in llm.prompts_for("write")[1]
+    assert reply.startswith("WROTE") and "Still not perfect" in reply and t.written == 1
 
 
-def test_fancy_writing_is_flagged_the_moment_it_is_written():
-    t = Storyteller(good_llm(), Brief(listener=listener(age=10), genre=GENRES["calming"], story_request="x"))
+def test_fancy_and_poetic_writing_is_sent_back_with_the_words_to_cut():
+    fancy = ("Luna gazed out of her window as a bright light danced across the sky like a celestial "
+             "firefly. The stars whispered tales of the day, lulling her into a peaceful slumber, and "
+             "together they marvelled at the ethereal, luminous, mysterious spectacle unfolding outside.")
+    llm = good_llm(write=[fancy, default_writer])
+    t = Storyteller(llm, Brief(listener=listener(age=10), genre=GENRES["calming"], story_request="x"))
     t.plan_ok, t.events = True, ["e"] * 10
-    t.write_part(1, 2)
-    t.pending.words = 40
-    fancy = ("Luna gazed out of her window, her eyes wide with wonder, as a bright light danced across "
-             "the sky like a celestial firefly. Excitedly, she shook Sam awake, her voice full of wonder, "
-             "and together they marvelled at the ethereal, luminous, mysterious spectacle unfolding outside.")
-    reply = t.take_text(fancy)
-    assert reply.startswith("Not accepted yet - too fancy") and "celestial" in reply
-    assert "eyes wide with wonder" in reply
+    t.write_part(1, 1)
+    retry = llm.prompts_for("write")[1]
+    assert "too fancy or poetic" in retry and "stars whispered" in retry and "celestial" in retry
+    assert "slumber" not in t.passages[0]
 
 
 def test_review_card_says_how_many_events_to_add():
@@ -458,16 +465,17 @@ def test_tired_bedtime_ideas_are_refused_unless_the_parent_asked():
                                                         heart="Mia follows the fireflies home"))
 
 
-def test_each_story_gets_a_fresh_spark_and_hero_name_from_code():
+def test_each_story_gets_a_fresh_hero_name_and_no_competing_random_spark():
+    # Real run: a code-picked spark ("a seed that grows in a space garden") fought the
+    # chosen seed. The seeds are the idea now; code still varies the hero's name.
     tasks = []
     for _ in range(4):
         llm = good_llm()
         create_story(listener(name=""), Request("funny", ""), llm=llm)
         tasks.append(llm.agent_messages[1]["content"])
-    sparks = [re.search(r"Starting spark, chosen for this story: (.+?)\. Build", t).group(1) for t in tasks]
     names = [re.search(r"Hero's name: (\w+)", t).group(1) for t in tasks]
-    assert len(set(sparks)) == 4 and len(set(names)) == 4          # memory avoids repeats
-    assert all(s in GENRES["funny"].sparks for s in sparks)
+    assert len(set(names)) == 4                                    # memory avoids repeats
+    assert not any("Starting spark" in t for t in tasks)
 
 
 def test_memory_tells_the_agent_what_recent_stories_used():

@@ -3,7 +3,7 @@ digraph G {
   node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12, penwidth=0.8, margin="0.2,0.09"];
   edge  [fontname="Helvetica", fontsize=10, color="#5F5E5A", arrowsize=0.7];
 
-  user  [label="Parent on the web page\nname · age 5-10 · genre (Surprise me, 11 genres, My own idea)", fillcolor="#F1EFE8", color="#5F5E5A"];
+  user  [label="Parent on the web page\nname · age 5-10 · something from today · a shelf (Surprise me, 11 genres, My own idea)", fillcolor="#F1EFE8", color="#5F5E5A"];
   guard [label="Input guard (code)\nclean text · real names only · injection check", fillcolor="#E1F5EE", color="#0F6E56"];
   screen [label="Safety screen (1 LLM call, only for \"My own idea\")\nsoften / block · original characters · genre", fillcolor="#E1F5EE", color="#0F6E56"];
 
@@ -11,39 +11,58 @@ digraph G {
     label="Storyteller Agent  (gpt-3.5-turbo, tool calling, one conversation)"; fontcolor="#633806"; style="rounded"; color="#BA7517"; penwidth=1.6;
     observe [label="Observe\ntool result / report card", fillcolor="#FAEEDA", color="#854F0B"];
     decide  [label="Decide: call ONE tool", shape=diamond, style="filled", fillcolor="#FAEEDA", color="#854F0B", fontsize=11];
+    pitch [label="pitch_ideas(3 pitches)\nwriters' room: 3 different shapes\n(or a sequel)", fillcolor="#FFFFFF", color="#854F0B"];
     lib   [label="search_library(tone)\n→ 1 example for age + mood", fillcolor="#FFFFFF", color="#854F0B"];
-    plan  [label="check_plan(events)\n→ PLAN OK / problems", fillcolor="#FFFFFF", color="#854F0B"];
-    write [label="write_part(first, last)\n→ next message = story text", fillcolor="#FFFFFF", color="#854F0B"];
+    browse [label="browse_ideas()\n→ 5 story seeds (+ space facts)", fillcolor="#FFFFFF", color="#854F0B"];
+    plan  [label="plan_story() · revise_plan(part)\nplanning specialists on a shared scratchpad", fillcolor="#FFFFFF", color="#854F0B"];
+    write [label="write_part(first, last, note)\n→ the section writers write\none passage per event", fillcolor="#FFFFFF", color="#854F0B"];
+    rehearse [label="read_aloud()\nrehearsal: one breath per sentence,\ntongue-twisters, same starts", fillcolor="#FFFFFF", color="#854F0B"];
     review [label="review_story()\n→ report card", fillcolor="#FFFFFF", color="#854F0B"];
-    fix   [label="rewrite_passage(n) · add_passage(after)\n→ next message = new text", fillcolor="#FFFFFF", color="#854F0B"];
+    fix   [label="rewrite_passage(n) · add_passage(after)\n→ a section writer rewrites / adds", fillcolor="#FFFFFF", color="#854F0B"];
     fin   [label="finish(reason)", fillcolor="#FFFFFF", color="#854F0B"];
   }
+
+  listener [label="Young listener (gpt-3.5 as a child of this age)\nsees only the pitches → picks one + why", fillcolor="#FBEAF0", color="#993556"];
+  subgraph cluster_room {
+    label="Writers' room (gpt-3.5 specialists, after Agents' Room, ICLR 2025)"; fontcolor="#72243E"; style="rounded"; color="#993556";
+    ideas [label="Premise bank · space facts · comic scenes\n88 hand-written seeds: a want, a funny obstacle, a twist", fillcolor="#EEEDFE", color="#534AB7"];
+    room [label="Planning specialists → shared scratchpad\nCONFLICT → CHARACTERS → SETTING → PLOT (story spine)\neach part checked in code (age rules · seed kept · twist lands)", fillcolor="#FBEAF0", color="#993556"];
+    editor [label="Story editor\nreads the plot: cause → effect, quirk solves it,\ntwist lands, joke returns → one plot redo", fillcolor="#FBEAF0", color="#993556"];
+    writer [label="Section writers: opening · build-up · big moment · wind-down · sleepy ending\nread the scratchpad · the example as their own earlier story (+ a comic scene)\naction → 4+ lines of talk → close the moment · checked, retried, best kept", fillcolor="#FBEAF0", color="#993556"];
+  }
+  memory [label="Memory\nrecent names & ideas · each child's stories (sequels)", fillcolor="#EEEDFE", color="#534AB7"];
 
   subgraph cluster_harness {
     label="Harness (code)"; fontcolor="#791F1F"; style="rounded,dashed"; color="#A32D2D";
     library [label="Story library\n12 examples · 3 age bands × 4 moods", fillcolor="#EEEDFE", color="#534AB7"];
     checks [label="Code checks\nwords 500-800 · safety words · repeats · copying the example\noverused words · hard words · habits · passive · talking", fillcolor="#E1F5EE", color="#0F6E56"];
-    judge  [label="LLM judge (1 call per review)\nsafety veto · yes/no checklist → score in code", fillcolor="#E1F5EE", color="#0F6E56"];
-    rails  [label="Guardrails\nno writing before plan passes · text checked before accepted\nfinish refused unless safe, in range, no copy/repeat, reviewed, passing\nargs validated · repeats refused · budgets: 24 tools / 34 turns / 150 s", fillcolor="#FCEBEB", color="#A32D2D", fontsize=11];
-    auto   [label="Autopilot fallback\nsame tools, fixed decisions:\nplan → write → review → add/shorten to fit", fillcolor="#FCEBEB", color="#A32D2D"];
+    judge  [label="LLM judge (1 call per review)\nsafety veto · yes/no checklist → score in code\nevery safety flag double-checked (fails closed)", fillcolor="#E1F5EE", color="#0F6E56"];
+    rails  [label="Guardrails\nlistener first · no writing before the plan passes · soft gates pass on the 2nd try\njudge skipped while length is wrong · best draft = safe, judged, in range · finish refused unless safe, in range,\nno copy/repeat, reviewed, rehearsed, passing · stuck after 4 refusals\nbudgets: 22 tools / 32 turns / 150 s", fillcolor="#FCEBEB", color="#A32D2D", fontsize=11];
+    auto   [label="Autopilot fallback\nsame tools, fixed decisions:\nseeds → pitch → room → write → review → fit → rehearse", fillcolor="#FCEBEB", color="#A32D2D"];
     trace  [label="Tracer: every turn, tool call\nand model call → output/debug/", fillcolor="#F1EFE8", color="#5F5E5A"];
   }
 
-  show [label="Story on the web page\nsafe · 500-800 words · reviewed\nbest draft kept", fillcolor="#F1EFE8", color="#5F5E5A"];
+  show [label="Story on the web page\nsafe · 500-800 words · reviewed · rehearsed\nbest draft kept", fillcolor="#F1EFE8", color="#5F5E5A"];
+  steps [label="The book's cover shows each step\n(\"A 7-year-old listener picked…\")", fillcolor="#F1EFE8", color="#5F5E5A"];
 
   user -> guard;
   guard -> screen [label=" own idea"];
   guard -> observe [label=" genre picked", lhead=cluster_agent];
   screen -> observe [lhead=cluster_agent];
   observe -> decide;
-  decide -> lib; decide -> plan; decide -> write; decide -> review; decide -> fix; decide -> fin;
+  decide -> browse; decide -> pitch; decide -> lib; decide -> plan; decide -> write; decide -> review; decide -> fix; decide -> rehearse; decide -> fin;
+  pitch -> listener [style=dashed, dir=both];
+  browse -> ideas [style=dashed, dir=both]; plan -> room [style=dashed, dir=both]; room -> editor [dir=both, label=" plot"]; editor -> writer [style=dotted, label=" scratchpad"];
+  write -> writer [style=dashed, dir=both]; fix -> writer [style=dashed];
+  pitch -> memory [style=dashed, dir=both];
   lib -> library [style=dashed, dir=both];
-  plan -> checks [style=dashed];
+  observe -> steps [style=dotted, label=" ✦ steps"];
+  room -> checks [style=dashed];
   review -> checks [style=dashed]; review -> judge [style=dashed];
   fin -> rails [label=" asks"];
   rails -> show [label=" allowed"];
   rails -> observe [label=" refused + why", style=dashed, color="#A32D2D", constraint=false];
-  decide -> auto [label=" error / out of budget", style=dotted];
+  decide -> auto [label=" error / stuck / out of budget", style=dotted];
   auto -> show;
   show -> observe [label=" \"make it funnier\"\n(injection-checked, fenced\nas <parent_change>)", constraint=false];
 }

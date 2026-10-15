@@ -42,6 +42,14 @@ EASY_LONG_WORDS = {
 # gpt-3.5's tell-tale habits, found in real output. They make a story sound
 # artificial and grown-up at ANY age, so they are checked for every listener.
 HABITS = [
+    # poetic filler - real trace: "the twinkling stars whispered tales of the day's adventures,
+    # lulling him into a peaceful slumber", "a symphony of magical creatures"
+    (r"\b(?:stars?|moon|sun|wind|breeze|night|sky|trees?|leaves|flowers?|waves?)\s+(?:softly\s+)?"
+     r"(?:whisper\w*|sang|sing|sings|danced?|dances|painted|paints|smiled|hummed|winked|sighed|lull\w*)",
+     "poetic filler"),
+    (r"\b(?:symphony|tapestry|harmony|merriment|slumber|demeanou?r|serenity|tranquil\w*|lull\w*|"
+     r"reverie|melod(?:y|ies) of|chorus of|dance of)\b", "poetic filler"),
+    (r"\bfill(?:ed|ing|s)?\s+the\s+air\b|\b(?:a|the)\s+(?:sense|feeling)\s+of\b", "poetic filler"),
     # an add-on after speech: ', her eyes wide with wonder' / ', her voice gentle and inviting'
     (r",\s+(?:her|his|their|its)\s+(?:eyes|voice|heart|face|cheeks|smile)\b[^.!?\"\u201d]{0,40}",
      "add-ons after speech"),
@@ -185,9 +193,18 @@ def readability_problems(brief: Brief, story: Story) -> list[str]:
     return problems
 
 
+# Gentle senses of banned words. Real trace: a garden story was rejected three
+# times for "tiny green shoots", and the agent never recovered.
+HARMLESS = re.compile(
+    r"shooting stars?|(?:green|tiny|little|new|young|first|baby|small)\s+shoots|"
+    r"shoots?\s+(?:up|grew|appeared|peeked|poked)|(?:sprouts?|leaves)\s+and\s+shoots",
+    re.IGNORECASE)
+
+
 def keyword_hits(text: str, tier: AgeTier) -> list[str]:
     """Banned words for this age tier, matched on whole words only."""
     hits = []
+    text = HARMLESS.sub(" ", text)
     for pattern in tier.banned_patterns:
         for m in re.finditer(rf"\b{pattern}\b", text, re.IGNORECASE):
             word = m.group(0).lower()
@@ -319,6 +336,19 @@ def copy_problems(brief: Brief, text: str) -> list[str]:
     return problems
 
 
+_FACT_STOP = {"about", "there", "their", "which", "every", "other", "things", "because", "would",
+              "could", "where", "after", "before", "little", "like", "very", "some", "from", "that",
+              "this", "them", "they", "with", "your", "into", "also", "only", "what", "when"}
+
+
+def teaches(text: str, fact: str) -> bool:
+    """Does the story actually say its true fact? At least half of the fact's key
+    words (first 5 letters, so "spins"/"spinning" match) appear in the story."""
+    key = {w[:5] for w in re.findall(r"[a-z]+", fact.lower()) if len(w) > 3 and w not in _FACT_STOP}
+    have = {w[:5] for w in re.findall(r"[a-z]+", text.lower())}
+    return not key or len(key & have) >= max(2, len(key) // 2)
+
+
 def code_checks(brief: Brief, story: Story) -> tuple[list[str], list[str]]:
     """Return (safety_issues, requirement_issues) found by plain code."""
     safety, issues = [], []
@@ -345,6 +375,10 @@ def code_checks(brief: Brief, story: Story) -> tuple[list[str], list[str]]:
     if missing:
         issues.append(f"The parent asked for these, but they are missing: {', '.join(missing)}.")
 
+    if getattr(brief, "learn", "") and not teaches(text, brief.learn):
+        issues.append(f'The story never explains its true fact: "{brief.learn}" One character should ask '
+                      "about it and another explain it in simple words.")
+
     name = brief.listener.name
     if name and not re.search(rf"\b{re.escape(name)}\b", text, re.IGNORECASE):
         issues.append(f"{name} (the listener) must appear in the story.")
@@ -363,3 +397,139 @@ def code_checks(brief: Brief, story: Story) -> tuple[list[str], list[str]]:
 
     issues += readability_problems(brief, story)
     return safety, issues
+
+
+# --------------------------------------------------------------------------- #
+# Read-aloud rehearsal: what a parent's voice trips over
+# --------------------------------------------------------------------------- #
+# A bedtime story is heard, not read. These are the things that make a parent
+# run out of breath or stumble at 8pm - easy for code to find, invisible to
+# gpt-3.5 when it reads its own text.
+BREATH = {5: 14, 6: 14, 7: 18, 8: 18, 9: 22, 10: 22}     # words a sentence can hold in one breath
+
+
+def _first_word(sentence: str) -> str:
+    m = re.search(r"[A-Za-z']+", sentence)
+    return m.group(0).lower() if m else ""
+
+
+# Little words never trip a reader up: "the trees to the" is not a tongue-twister.
+LITTLE = {"the", "to", "then", "that", "this", "they", "there", "them", "their", "and", "a", "an", "of",
+          "in", "on", "is", "it", "he", "she", "his", "her", "was", "with", "we", "you", "so", "but"}
+
+
+def _twister(words: list[str]) -> str:
+    """Four or more words in a row starting with the same consonant."""
+    run: list[str] = []
+    for w in words:
+        lw = w.lower()
+        if lw in LITTLE or lw[0] in "aeiou":
+            run = []
+            continue
+        run = run + [w] if run and run[0][0].lower() == lw[0] else [w]
+        if len(run) >= 4:
+            return " ".join(run)
+    return ""
+
+
+_JOINS = re.compile(r"(?:,\s+(?:and|but|so|then|because|while)|;|\s+-)\s+(?=[A-Za-z\"'])")
+
+
+def smooth_breaths(passage: str, age: int) -> str:
+    """Split sentences too long for one breath at a natural join (", and", ", but",
+    ";", " - "), nearest the middle. Code, not a model call: real run ("The Peas That
+    Drifted Away"), four rewrite-and-review loops spent 30 s on exactly this."""
+    from .pipeline import split_sentences
+    limit = BREATH.get(age, 18)
+    out = passage
+    for s in split_sentences(passage.replace("\n", " ")):
+        for _ in range(3):                                   # a very long one may need two cuts
+            if len(re.findall(r"[A-Za-z']+", s)) <= limit:
+                break
+            cuts = [m for m in _JOINS.finditer(s) if 4 <= len(s[:m.start()].split()) and 4 <= len(s[m.end():].split())]
+            if not cuts:
+                break
+            m = min(cuts, key=lambda m: abs(m.start() - len(s) / 2))
+            joiner = m.group(0).strip(" ,;-")
+            rest = s[m.end():]
+            if joiner in ("and", "then", "while"):
+                joiner = ""                               # "X, and Y" -> "X. Y" reads best aloud
+            new = s[:m.start()].rstrip() + ". " + (joiner.capitalize() + " " + rest if joiner else rest[:1].upper() + rest[1:])
+            out = out.replace(s, new, 1)
+            s = new.split(". ", 1)[1] if ". " in new else new
+    return out
+
+
+def rehearse(passages: list[str], age: int) -> list[dict]:
+    """Read the story 'aloud', passage by passage. Returns one dict per problem:
+    {"passage": n, "kind": ..., "text": ..., "hard": bool}. "hard" problems
+    block finishing; the rest are advice."""
+    from .pipeline import split_sentences
+    limit = BREATH.get(age, 18)
+    found = []
+    for n, passage in enumerate(passages, 1):
+        sentences = [s for s in split_sentences(passage.replace("\n", " ")) if s.strip()]
+        for s in sentences:
+            words = re.findall(r"[A-Za-z']+", s)
+            # a quote can hold several sentences; a breath only has to last one of them
+            breath = max(len(re.findall(r"[A-Za-z']+", piece)) for piece in re.split(r"(?<=[.!?])\s+", s))
+            if breath > limit:
+                found.append({"passage": n, "kind": "breath", "hard": breath > limit * 1.4,
+                              "text": f'"{s[:90]}{"..." if len(s) > 90 else ""}" is {breath} words - '
+                                      f"too long to say in one breath (keep under {limit})"})
+            twister = _twister(words)
+            if twister:
+                found.append({"passage": n, "kind": "twister", "hard": False,
+                              "text": f'"{twister}" is a tongue-twister'})
+            doubled = re.search(r"\b(\w+)\s+\1\b", s, re.IGNORECASE)
+            if doubled and doubled.group(1).lower() not in {"knock", "very", "tap", "drip", "ha", "no", "yes", "bye"}:
+                found.append({"passage": n, "kind": "stumble", "hard": False,
+                              "text": f'"{doubled.group(0)}" - the same word twice'})
+            if age <= 6:
+                long = [w for w in words if syllables(w) >= 4 and w.lower() not in EASY_LONG_WORDS]
+                if long:
+                    found.append({"passage": n, "kind": "mouthful", "hard": False,
+                                  "text": f"mouthful words for a {age}-year-old: {', '.join(long[:3])}"})
+        starts = [_first_word(s) for s in sentences]
+        for i in range(len(starts) - 2):
+            if starts[i] and starts[i] == starts[i + 1] == starts[i + 2] and starts[i] not in {'"'}:
+                found.append({"passage": n, "kind": "same start", "hard": False,
+                              "text": f'three sentences in a row start with "{starts[i].capitalize()}"'})
+                break
+    return found
+
+
+
+# --------------------------------------------------------------------------- #
+# House style, applied in code after every scene
+# --------------------------------------------------------------------------- #
+# Real run (age 10, "The Moon Mail Quest"): six "exclaimed/declared/replied/encouraged",
+# "said with determination", "her eyes wide with wonder". The rule is mechanical
+# ("said" or "asked", then stop), so code applies it instead of hoping gpt-3.5 does.
+_SAY = (r"exclaimed|declared|replied|remarked|announced|explained|stated|responded|noted|"
+        r"encouraged|reminded(?: her| him| them)?|advised|agreed|promised|insisted|cheered|"
+        r"chimed in|added|continued|beamed|gushed")
+_ASK = r"inquired|wondered aloud|questioned"
+_TAIL = (r"(?:,\s+(?:her|his|their)\s+(?:eyes|voice|heart|face|cheeks|smile)\b[^.!?\"\u201d,]{0,40}"
+         r"|\s+with\s+(?:a\s+)?(?:determination|excitement|a (?:warm |big |kind )?smile|wonder|curiosity|"
+         r"pride|delight|a grin|a giggle|joy)"
+         r"|\s+(?:excitedly|confidently|softly|gratefully|kindly|happily|eagerly|warmly|gently|"
+         r"proudly|cheerfully|sweetly|quietly|loudly|thoughtfully|nervously)"
+         r"|\s+to\s+(?:her|him|them)self)")
+
+
+def house_style(text: str) -> str:
+    """'"Go!" Mom exclaimed with a warm smile.' -> '"Go!" Mom said.'"""
+    q = r"[\"\u201d],?\s+(?:[A-Z]\w*\s+|the \w+\s+|she\s+|he\s+|they\s+)?"
+    text = re.sub(rf"({q})(?:{_SAY})\b", r"\1said", text)
+    text = re.sub(rf"({q})(?:{_ASK})\b", r"\1asked", text)
+    # 'Dad added, "..."' / 'Mom encouraged, "..."'
+    text = re.sub(rf"\b([A-Z]\w*|She|He|They)\s+(?:{_SAY}),(\s*[\"\u201c])", r"\1 said,\2", text)
+    # tails after said/asked
+    text = re.sub(rf"\b(said|asked)(?:{_TAIL})+", r"\1", text)
+    # real run: "chuckled" five times in one story
+    text = re.sub(r"\bchuckl(ed|es|ing|e)\b", lambda m: {"ed": "laughed", "es": "laughs", "ing": "laughing",
+                                                        "e": "laugh"}[m.group(1)], text)
+    text = re.sub(r"\bChuckl(ed|es|ing|e)\b", lambda m: {"ed": "Laughed", "es": "Laughs", "ing": "Laughing",
+                                                        "e": "Laugh"}[m.group(1)], text)
+    return text

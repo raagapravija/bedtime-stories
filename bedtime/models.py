@@ -40,6 +40,7 @@ class Brief:
     from_parent: bool = False    # the parent typed their own idea (it must be the heart of the story)
     spark: str = ""              # code-picked starting idea when the parent typed none
     hero: str = ""               # code-picked hero name when the parent gave none
+    learn: str = ""              # the true thing the story teaches (from a wonder seed)
 
     def __post_init__(self) -> None:
         if not self.word_target:
@@ -82,6 +83,7 @@ class Verdict:
     quality_fixes: list[str]
     answers: dict[str, bool] = field(default_factory=dict)
     critique: str = ""
+    judged: bool = True        # False: code checks only (the LLM judge was skipped)
 
     @property
     def safe(self) -> bool:
@@ -111,6 +113,7 @@ class StoryResult:
     agent_log: list[str] = field(default_factory=list)   # every decision the agent made
     passages: list[str] = field(default_factory=list)    # the story as the agent edits it
     example: str = ""                                    # library key of the voice example
+    agent_stats: dict = field(default_factory=dict)      # how the agent did (for evals)
 
     @property
     def story(self) -> Story:
