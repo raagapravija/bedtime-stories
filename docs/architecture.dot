@@ -1,68 +1,92 @@
+// Bedtime Story Maker - block diagram (whole-story mode, the default).
+// Render: dot -Tpng -Gdpi=110 docs/architecture.dot -o docs/architecture.png
+//         dot -Tsvg docs/architecture.dot -o docs/architecture.svg
+// Top to bottom is the usual order of one run. Each row is one agent tool and the
+// components it calls. Every LLM box names its prompt in bedtime/prompts.py.
 digraph G {
-  graph [rankdir=TB, fontname="Helvetica", fontsize=13, nodesep=0.4, ranksep=0.45, pad=0.35, bgcolor="white", compound=true];
-  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12, penwidth=0.8, margin="0.2,0.09"];
+  graph [rankdir=TB, fontname="Helvetica", fontsize=13, nodesep=0.35, ranksep=0.32, pad=0.3, bgcolor="white",
+         compound=true, newrank=true, splines=spline];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12, penwidth=0.9, margin="0.16,0.07"];
   edge  [fontname="Helvetica", fontsize=10, color="#5F5E5A", arrowsize=0.7];
 
-  user  [label="Parent on the web page\nname · age 5-10 · something from today · a shelf (Surprise me, 11 genres, My own idea)", fillcolor="#F1EFE8", color="#5F5E5A"];
-  guard [label="Input guard (code)\nclean text · real names only · injection check", fillcolor="#E1F5EE", color="#0F6E56"];
-  screen [label="Safety screen (1 LLM call, only for \"My own idea\")\nsoften / block · original characters · genre", fillcolor="#E1F5EE", color="#0F6E56"];
+  // ------------------------------------------------------------------ rows
+  user [label="USER (parent): web page or terminal\nname · age 5-10 · something from today · a shelf (11 genres, Surprise me, My own idea)",
+        fillcolor="#F1EFE8", color="#5F5E5A", fontsize=13];
+  guard  [label="Input guard (code)\nclean text · real names only · injection phrases", fillcolor="#E1F5EE", color="#0F6E56"];
+  screen [label="Safety screen  (LLM, only for \"My own idea\")\nprompt: CLASSIFIER_SYSTEM\nsoften or block · original characters · genre", fillcolor="#E1F5EE", color="#0F6E56"];
 
   subgraph cluster_agent {
-    label="Storyteller Agent  (gpt-3.5-turbo, tool calling, one conversation)"; fontcolor="#633806"; style="rounded"; color="#BA7517"; penwidth=1.6;
-    observe [label="Observe\ntool result / report card", fillcolor="#FAEEDA", color="#854F0B"];
-    decide  [label="Decide: call ONE tool", shape=diamond, style="filled", fillcolor="#FAEEDA", color="#854F0B", fontsize=11];
-    pitch [label="pitch_ideas(3 pitches)\nwriters' room: 3 different shapes\n(or a sequel)", fillcolor="#FFFFFF", color="#854F0B"];
-    lib   [label="search_library(tone)\n→ 1 example for age + mood", fillcolor="#FFFFFF", color="#854F0B"];
-    browse [label="browse_ideas()\n→ 5 story seeds (+ space facts)", fillcolor="#FFFFFF", color="#854F0B"];
-    plan  [label="plan_story() · revise_plan(part)\nplanning specialists on a shared scratchpad", fillcolor="#FFFFFF", color="#854F0B"];
-    write [label="write_part(first, last, note)\n→ the section writers write\none passage per event", fillcolor="#FFFFFF", color="#854F0B"];
-    rehearse [label="read_aloud()\nrehearsal: one breath per sentence,\ntongue-twisters, same starts", fillcolor="#FFFFFF", color="#854F0B"];
-    review [label="review_story()\n→ report card", fillcolor="#FFFFFF", color="#854F0B"];
-    fix   [label="rewrite_passage(n) · add_passage(after)\n→ a section writer rewrites / adds", fillcolor="#FFFFFF", color="#854F0B"];
-    fin   [label="finish(reason)", fillcolor="#FFFFFF", color="#854F0B"];
+    label="STORYTELLER AGENT\ngpt-3.5-turbo, tool calling\nprompt: AGENT_SYSTEM_WHOLE\nobserve → decide → ONE tool";
+    fontcolor="#633806"; style="rounded"; color="#BA7517"; penwidth=1.8; fontsize=12;
+    t1 [label="1  browse_ideas", fillcolor="#FAEEDA", color="#854F0B"];
+    t2 [label="2  pitch_ideas\n(three pitches)", fillcolor="#FAEEDA", color="#854F0B"];
+    t3 [label="3  search_library", fillcolor="#FAEEDA", color="#854F0B"];
+    t4 [label="4  plan_beats(note)", fillcolor="#FAEEDA", color="#854F0B"];
+    t5 [label="5  write_drafts(note)", fillcolor="#FAEEDA", color="#854F0B"];
+    t6 [label="6  review_story", fillcolor="#FAEEDA", color="#854F0B"];
+    t7 [label="7  rewrite_passage /\n    expand_passage", fillcolor="#FAEEDA", color="#854F0B"];
+    t8 [label="8  read_aloud", fillcolor="#FAEEDA", color="#854F0B"];
+    t9 [label="9  finish", fillcolor="#FAEEDA", color="#854F0B"];
+    t1 -> t2 -> t3 -> t4 -> t5 -> t6 -> t7 -> t8 -> t9 [color="#BA7517", penwidth=1.3];
+    t7 -> t6 [color="#BA7517", style=dashed, label=" review again", constraint=false];
   }
 
-  listener [label="Young listener (gpt-3.5 as a child of this age)\nsees only the pitches → picks one + why", fillcolor="#FBEAF0", color="#993556"];
-  subgraph cluster_room {
-    label="Writers' room (gpt-3.5 specialists, after Agents' Room, ICLR 2025)"; fontcolor="#72243E"; style="rounded"; color="#993556";
-    ideas [label="Premise bank · space facts · comic scenes\n88 hand-written seeds: a want, a funny obstacle, a twist", fillcolor="#EEEDFE", color="#534AB7"];
-    room [label="Planning specialists → shared scratchpad\nCONFLICT → CHARACTERS → SETTING → PLOT (story spine)\neach part checked in code (age rules · seed kept · twist lands)", fillcolor="#FBEAF0", color="#993556"];
-    editor [label="Story editor\nreads the plot: cause → effect, quirk solves it,\ntwist lands, joke returns → one plot redo", fillcolor="#FBEAF0", color="#993556"];
-    writer [label="Section writers: opening · build-up · big moment · wind-down · sleepy ending\nread the scratchpad · the example as their own earlier story (+ a comic scene)\naction → 4+ lines of talk → close the moment · checked, retried, best kept", fillcolor="#FBEAF0", color="#993556"];
-  }
-  memory [label="Memory\nrecent names & ideas · each child's stories (sequels)", fillcolor="#EEEDFE", color="#534AB7"];
+  ideas    [label="Premise bank (code data)\n98 seeds: a want · a funny obstacle · a twist\nspace & animal seeds: hero + a true fact", fillcolor="#EEEDFE", color="#534AB7"];
+  listener [label="YOUNG LISTENER  (LLM)\nprompt: LISTENER_SYSTEM\na child of this age picks one pitch + why", fillcolor="#FBEAF0", color="#993556"];
+  memory   [label="Memory (JSON file)\nrecent seeds & names\neach child's stories (sequels)", fillcolor="#EEEDFE", color="#534AB7"];
+  library  [label="Story library (code data)\n12 examples · 3 age bands × 4 moods\nthe voice to copy, never the plot", fillcolor="#EEEDFE", color="#534AB7"];
+  head [label="HEAD WRITER  (LLM)\nprompt: HEAD_WRITER_SYSTEM + beats_prompt (with a worked example)\nbeat sheet: funny rule · 3 tries (plan → set-up → punchline → so next)\nplanted idea · solution · twist · running joke ×3 · last line", fillcolor="#FBEAF0", color="#993556"];
+  beatcheck [label="Beat-sheet checks (code)\nreal punchlines, not descriptions\nchild is the hero · seed's twist & fact · age-safe", fillcolor="#E1F5EE", color="#0F6E56"];
+  drafts [label="3 DRAFT WRITERS, in parallel  (LLM, each in two halves)\nprompt: WHOLE_WRITER_SYSTEM + whole_story_prompt\nthe library example is sent as their \"own earlier story\"\nangles: straight · comedy · characters", fillcolor="#FBEAF0", color="#993556"];
+  pick [label="SIDE-BY-SIDE JUDGE  (LLM, 3 pairs × 2 orders, parallel)\nprompt: PAIRWISE_SYSTEM + pairwise_prompt\nplot · creativity · development · language · bedtime\nthe winning draft becomes the story", fillcolor="#FBEAF0", color="#993556"];
+  checks [label="Code checks\n500-800 words · age words · repeats · copying\nhard words · true fact explained", fillcolor="#E1F5EE", color="#0F6E56"];
+  judge  [label="JUDGE  (LLM)\nprompt: JUDGE_SYSTEM + judge_prompt\nsafety veto · yes/no checklist\n→ score computed in code → report card", fillcolor="#FCEBEB", color="#A32D2D"];
+  double [label="Safety double-check  (LLM, per flag)\nprompt: SAFETY_CHECK_SYSTEM\nkeeps only real problems · fails closed", fillcolor="#FCEBEB", color="#A32D2D"];
+  scene  [label="Scene writer  (LLM)\nprompt: WRITER_SYSTEM + scene_prompt\nrewrite or lengthen ONE passage, never new events", fillcolor="#FBEAF0", color="#993556"];
+  rehearse [label="Rehearsal (code)\none breath per sentence · long ones split in code\ntongue-twisters · same starts", fillcolor="#E1F5EE", color="#0F6E56"];
+  rails [label="GUARDRAILS (code) decide\nfinish only if safe, 500-800 words, reviewed and rehearsed\nevery refusal says why · 2 polish edits after a passing draft\nstuck after 4 refusals · budgets: 22 tool calls, 90 s", fillcolor="#FCEBEB", color="#A32D2D"];
+  auto  [label="Autopilot fallback (code)\nsame tools, fixed order", fillcolor="#FCEBEB", color="#A32D2D"];
+  out [label="STORY on the page: title page + pages, read aloud with the computer's own voice\n(the agent's steps appear on the book's cover while it works)\n\nThe parent can ask for a change (\"make it funnier\"): checked for injection, fenced as <parent_change>,\nand the same agent edits the story page by page with rewrite_passage → review_story → finish.", fillcolor="#F1EFE8", color="#5F5E5A", fontsize=13];
+  trace [label="Tracer (code) → output/debug/*.json\nevery turn, prompt, reply and time", fillcolor="#F1EFE8", color="#5F5E5A"];
 
-  subgraph cluster_harness {
-    label="Harness (code)"; fontcolor="#791F1F"; style="rounded,dashed"; color="#A32D2D";
-    library [label="Story library\n12 examples · 3 age bands × 4 moods", fillcolor="#EEEDFE", color="#534AB7"];
-    checks [label="Code checks\nwords 500-800 · safety words · repeats · copying the example\noverused words · hard words · habits · passive · talking", fillcolor="#E1F5EE", color="#0F6E56"];
-    judge  [label="LLM judge (1 call per review)\nsafety veto · yes/no checklist → score in code\nevery safety flag double-checked (fails closed)", fillcolor="#E1F5EE", color="#0F6E56"];
-    rails  [label="Guardrails\nlistener first · no writing before the plan passes · soft gates pass on the 2nd try\njudge skipped while length is wrong · best draft = safe, judged, in range · finish refused unless safe, in range,\nno copy/repeat, reviewed, rehearsed, passing · stuck after 4 refusals\nbudgets: 22 tools / 32 turns / 150 s", fillcolor="#FCEBEB", color="#A32D2D", fontsize=11];
-    auto   [label="Autopilot fallback\nsame tools, fixed decisions:\nseeds → pitch → room → write → review → fit → rehearse", fillcolor="#FCEBEB", color="#A32D2D"];
-    trace  [label="Tracer: every turn, tool call\nand model call → output/debug/", fillcolor="#F1EFE8", color="#5F5E5A"];
-  }
+  { rank=same; guard; screen; }
+  { rank=same; t1; ideas; }
+  { rank=same; t2; listener; memory; }
+  { rank=same; t3; library; }
+  { rank=same; t4; head; beatcheck; }
+  { rank=same; t5; drafts; pick; }
+  { rank=same; t6; checks; judge; double; }
+  { rank=same; t7; scene; }
+  { rank=same; t8; rehearse; }
+  { rank=same; t9; rails; auto; }
 
-  show [label="Story on the web page\nsafe · 500-800 words · reviewed · rehearsed\nbest draft kept", fillcolor="#F1EFE8", color="#5F5E5A"];
-  steps [label="The book's cover shows each step\n(\"A 7-year-old listener picked…\")", fillcolor="#F1EFE8", color="#5F5E5A"];
-
+  // ------------------------------------------------------------------ flow
   user -> guard;
-  guard -> screen [label=" own idea"];
-  guard -> observe [label=" genre picked", lhead=cluster_agent];
-  screen -> observe [lhead=cluster_agent];
-  observe -> decide;
-  decide -> browse; decide -> pitch; decide -> lib; decide -> plan; decide -> write; decide -> review; decide -> fix; decide -> rehearse; decide -> fin;
-  pitch -> listener [style=dashed, dir=both];
-  browse -> ideas [style=dashed, dir=both]; plan -> room [style=dashed, dir=both]; room -> editor [dir=both, label=" plot"]; editor -> writer [style=dotted, label=" scratchpad"];
-  write -> writer [style=dashed, dir=both]; fix -> writer [style=dashed];
-  pitch -> memory [style=dashed, dir=both];
-  lib -> library [style=dashed, dir=both];
-  observe -> steps [style=dotted, label=" ✦ steps"];
-  room -> checks [style=dashed];
-  review -> checks [style=dashed]; review -> judge [style=dashed];
-  fin -> rails [label=" asks"];
-  rails -> show [label=" allowed"];
-  rails -> observe [label=" refused + why", style=dashed, color="#A32D2D", constraint=false];
-  decide -> auto [label=" error / stuck / out of budget", style=dotted];
-  auto -> show;
-  show -> observe [label=" \"make it funnier\"\n(injection-checked, fenced\nas <parent_change>)", constraint=false];
+  guard -> screen [dir=both, label=" own idea →\n safe brief"];
+  guard -> t1 [label=" the brief (fenced, untrusted)", lhead=cluster_agent];
+
+  t1 -> ideas [dir=both, style=dashed, label=" 5 seeds"];
+  t2 -> listener [dir=both, style=dashed, label=" 3 pitches → choice"];
+  listener -> memory [style=invis];
+  t2 -> memory [dir=both, style=dashed, constraint=false];
+  t3 -> library [dir=both, style=dashed, label=" 1 example"];
+  t4 -> head [style=dashed, label=" seed + choice +\n age rules + note"];
+  head -> beatcheck;
+  beatcheck -> t4 [style=dashed, color="#A32D2D", label=" problems → redo once", constraint=false];
+  t5 -> drafts [style=dashed, label=" beat sheet"];
+  drafts -> pick [label=" 3 drafts"];
+  pick -> t5 [style=dashed, label=" winner", constraint=false];
+  t6 -> checks [style=dashed];
+  checks -> judge [label=" story"];
+  judge -> double [label=" each safety flag"];
+  judge -> t6 [style=dashed, label=" report card", constraint=false];
+  t7 -> scene [style=dashed, label=" the card's fix"];
+  t8 -> rehearse [style=dashed];
+  t9 -> rails [dir=both, label=" asks /\n refused + why"];
+  rails -> auto [style=dotted, label=" agent error /\n stuck / out of time"];
+  rails -> out [label=" allowed"];
+  auto -> out;
+  t9 -> out [style=invis];
+  out -> trace [style=invis];
+
 }
