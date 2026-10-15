@@ -8,6 +8,7 @@ from collections import defaultdict
 ROLES = {
     "intake editor": "classify",
     "You plan bedtime stories": "plan",
+    "You write bedtime picture books for children aged 5 to 10. Short": "story",
     "You write bedtime picture books": "write",
     "revising your own story": "revise",
     "You are the Storyteller": "author",     # autopilot (fallback) writing calls
@@ -44,6 +45,8 @@ class FakeLLM:
             self.responses[role] = [default_writer]      # the scene writer
         if role == "room" and role not in self.responses:
             self.responses[role] = [default_room]        # conflict / characters / setting / plot
+        if role == "story" and role not in self.responses:
+            self.responses[role] = [default_story]
         if role == "beats" and role not in self.responses:
             self.responses[role] = [default_beats]
         if role == "whole" and role not in self.responses:
@@ -364,12 +367,20 @@ def default_beats(prompt: str) -> dict:
             "last_line": f"{hero} counted one frog, two frogs, and was asleep before three."}
 
 
+def default_story(prompt: str) -> str:
+    """The short-prompt writer: a whole story of about 70% of the words asked (like gpt-3.5)."""
+    m = _re.search(r"About (\d+) words", prompt)
+    hero = _re.search(r"The hero is (\w+)", prompt)
+    return "TITLE: The Frog Song\n\n" + story_text(int(int(m.group(1)) * 0.75) if m else 550,
+                                                      hero.group(1) if hero else "Mia", ending=True)
+
+
 def default_whole(prompt: str) -> str:
     """A draft writer: the first half (with a title), or the second half ending in bed."""
     m = _re.search(r"about (\d+) words", prompt)
     hero = _re.search(r"Hero: (\w+)", prompt)
     words, name = (int(m.group(1)) if m else 300), (hero.group(1) if hero else "Mia")
-    if "Write the SECOND HALF" in prompt:
+    if "SECOND HALF" in prompt.upper():
         return story_text(words, name, ending=True)
     return "TITLE: The Frog Song\n\n" + story_text(words, name)
 

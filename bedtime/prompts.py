@@ -713,3 +713,61 @@ HOW TO WORK
 7. read_aloud, then finish.
 
 A GOOD BEDTIME STORY has: a hero who wants something specific; tries that fail in funnier and funnier ways; the hero's own idea that works; a running joke that pays off; and a slow, cozy ending in bed.""" + GUARD
+
+
+# --------------------------------------------------------------------------- #
+# Simple mode: a short prompt, the example as the writer's own earlier story
+# --------------------------------------------------------------------------- #
+# Real A/B test (Oct 2026, same seed, age 7, gpt-3.5): a labelled beat sheet made the
+# writer copy its labels into the story ("It was a funny rule", "A twist she never
+# expected!"); an outline made it preachy; a SHORT prompt with the idea and the
+# library example as the writer's earlier story gave the best story by far (a real
+# rule of three, lots of natural talk, the twist landing). Fewer words in, better
+# story out: everything the code can check (safety words, length, style) is left
+# to the code, not repeated to the writer.
+STORY_SYSTEM = """You write bedtime picture books for children aged 5 to 10. Short, simple sentences in everyday words. Lots of short, real dialogue with "said" or "asked". Funny, warm and specific. No lessons spelled out.""" + GUARD
+
+
+def story_prompt(*, age: int, name: str, hero_is: str, hook: str, twist: str, learn: str, words: int,
+                 today: str = "", must: str = "", rules: str = "", note: str = "") -> str:
+    lines = [f"Write a new bedtime story for a {age}-year-old. The hero is {name}."
+             + (f" {name} is {hero_is}." if hero_is else "") + f" About {words} words.",
+             f"The idea: <story_brief>{hook} At the end: {twist}</story_brief>"]
+    if learn:
+        lines.append(f"The listener should find out this true fact, from the characters talking about it: {learn}")
+    if today:
+        lines.append(f"Weave in something from the child's day: <parent_today>{today}</parent_today>")
+    if must:
+        lines.append(f"It must include: {must}")
+    if note:
+        lines.append(f"<editor_note>{note}</editor_note>")
+    if learn:
+        # Real run ("Leo the Raindrop on Titan"): told to "fix a problem" with three ideas, a
+        # discovery story grew a second, pointless act (a fizzy-soda lake, a methane tornado).
+        # A story you learn from has its own funny middle: wrong guesses, then the truth.
+        lines.append(f"The funny middle: {name} wonders about it and asks around; three characters each give a "
+                     "different wrong guess, each sillier than the last; then someone explains the true answer in "
+                     f"simple words, and {name} is amazed. That discovery is the end of the problem - no second plan. "
+                     f"Let the characters talk a lot. End slowly, with {name} falling asleep. Start with a title line.")
+    else:
+        lines.append(f"The funny middle: {name} has an idea to fix the problem and it goes wrong in a surprising way; "
+                     f"a second idea goes wrong in a different, sillier way; the third idea, {name}'s own, works. "
+                     f"Let the characters talk a lot. End slowly, with {name} in bed, falling asleep. Start with a title line.")
+    if rules:
+        lines.append(f"Rules for this age: {rules}")
+    return "\n".join(lines) + reminder("write this bedtime story")
+
+
+def revise_story_prompt(*, age: int, story: str, fixes: list, words: int) -> str:
+    return f"""Here is your bedtime story for a {age}-year-old:
+<story>
+{story}
+</story>
+
+An editor's notes:
+<editor_note>
+{chr(10).join("- " + f for f in fixes)}
+</editor_note>
+
+Write the story again, fixing every note. Keep every event, joke and good line the notes don't mention. About {words} words, still ending with the hero falling asleep. Start with the title line.""" + reminder(
+        "revise your bedtime story")

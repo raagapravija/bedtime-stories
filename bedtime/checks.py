@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from .config import MAX_WORDS, MIN_WORDS, WORD_TOLERANCE, AgeTier
+from .config import MAX_WORDS, MIN_WORDS, WORD_TOLERANCE, AgeTier, target_words, word_band
 from .models import Brief, Story
 
 STOPWORDS = {"the", "a", "an", "and", "of", "her", "his", "their", "with", "who",
@@ -299,7 +299,11 @@ def overused_words(text: str) -> dict[str, int]:
 
 
 def word_range(brief: Brief) -> tuple[int, int]:
-    """Within 20% of the age target, and ALWAYS inside the 500-800 word range."""
+    """The age's band (300-500 at 5-6, 400-650 at 7-8, 500-800 at 9-10); if a parent
+    asked for longer or shorter, a band around the new target, inside 300-800."""
+    age = brief.listener.age
+    if brief.word_target == target_words(age):
+        return word_band(age)
     target = brief.word_target
     return (max(MIN_WORDS, int(target * (1 - WORD_TOLERANCE))),
             min(MAX_WORDS, int(target * (1 + WORD_TOLERANCE))))
@@ -518,6 +522,17 @@ _TAIL = (r"(?:,\s+(?:her|his|their)\s+(?:eyes|voice|heart|face|cheeks|smile)\b[^
          r"|\s+to\s+(?:her|him|them)self)")
 
 
+# Named-feeling tails after ANY action, not just speech. Real runs: "asked, eyes wide with
+# curiosity", "laughed heartily, his eyes shining with love for his clever son", "snuggled
+# under his blanket, feeling glad to have such an adventurous dad".
+_FEELING_TAIL = re.compile(
+    r",\s+(?:(?:her|his|their)\s+)?eyes\s+(?:wide|shining|sparkling|twinkling|glowing|bright|filled)[^.!?\"\u201d]*"
+    r"|,\s+feeling\s+(?:so\s+|very\s+|a\s+little\s+)?(?:glad|happy|proud|excited|grateful|warm|cozy|puzzled|"
+    r"curious|amazed|determined|thankful|content)[^.!?\"\u201d]*"
+    r"|,\s+(?:excitement|joy|pride|wonder|delight)\s+(?:shining|sparkling|glowing|dancing)[^.!?\"\u201d]*"
+    r"|\s+(?:with|and)\s+(?:a\s+)?(?:sprinkle|twinkle|sparkle)\s+of\s+\w+(?:\s+in\s+(?:her|his|their)\s+eyes)?")
+
+
 def house_style(text: str) -> str:
     """'"Go!" Mom exclaimed with a warm smile.' -> '"Go!" Mom said.'"""
     q = r"[\"\u201d],?\s+(?:[A-Z]\w*\s+|the \w+\s+|she\s+|he\s+|they\s+)?"
@@ -527,6 +542,7 @@ def house_style(text: str) -> str:
     text = re.sub(rf"\b([A-Z]\w*|She|He|They)\s+(?:{_SAY}),(\s*[\"\u201c])", r"\1 said,\2", text)
     # tails after said/asked
     text = re.sub(rf"\b(said|asked)(?:{_TAIL})+", r"\1", text)
+    text = _FEELING_TAIL.sub("", text)
     # real run: "chuckled" five times in one story
     text = re.sub(r"\bchuckl(ed|es|ing|e)\b", lambda m: {"ed": "laughed", "es": "laughs", "ing": "laughing",
                                                         "e": "laugh"}[m.group(1)], text)

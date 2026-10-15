@@ -18,12 +18,13 @@ CORE_MODEL = "gpt-3.5-turbo"
 # Checks and judge (the agent's own budgets live in bedtime/agent.py)
 # --------------------------------------------------------------------------- #
 QUALITY_PASS = 8.0         # score out of 10 needed to pass
-# How the Storyteller writes: "whole" (a head writer's beat sheet with the real
-# jokes, three whole drafts at once, the side-by-side judge picks one) or "room"
-# (the writers' room: four planning specialists, five section writers, scene by
-# scene). Set BEDTIME_MODE=room to use the writers' room.
-STORY_MODE = os.getenv("BEDTIME_MODE", "whole").strip().lower()
-WORD_TOLERANCE = 0.20      # +/- 20% of the age's target, always inside 500-800
+# How stories are written. "simple" (default): a fixed pipeline - the young listener
+# picks an idea, three writers draft it from a short prompt, the side-by-side judge picks
+# one, the judge's notes drive one revision that is kept only if it scores higher.
+# "whole": the same, driven by a tool-calling agent with a head writer's beat sheet.
+# "room": the agent with a writers' room (planning specialists, section writers).
+STORY_MODE = os.getenv("BEDTIME_MODE", "simple").strip().lower()
+WORD_TOLERANCE = 0.22      # +/- 22% around a target a parent changed ("make it longer")
 
 # Temperatures: screening and judging run cold for consistency; the agent runs warm.
 TEMP_CLASSIFY = 0.0
@@ -32,13 +33,25 @@ TEMP_JUDGE = 0.0
 MIN_AGE, MAX_AGE = 5, 10
 
 
-MIN_WORDS, MAX_WORDS = 500, 800   # every story, every age, must land in this range
+MIN_WORDS, MAX_WORDS = 300, 800   # the shortest and longest story, at any age
+
+# Length by age band - a 3-5 minute bedtime read, like real picture books. It used to be
+# 500-800 for every age, but gpt-3.5 copies the LENGTH of its example story as well as
+# its voice, and the library examples are 374-539 words: real runs came out at 280-450
+# words and were then padded (new scenes after the ending, revisions that shrank).
+# Calibrated on real simple-mode drafts: ages 5-6 came out at 280-360 words, 7-8 at
+# 390-530, 9-10 around 600.
+WORD_BANDS = {5: (300, 500), 6: (300, 500), 7: (400, 650), 8: (400, 650), 9: (500, 800), 10: (500, 800)}
+
+
+def word_band(age: int) -> tuple[int, int]:
+    return WORD_BANDS[max(MIN_AGE, min(MAX_AGE, age))]
 
 
 def target_words(age: int) -> int:
-    """500 words at age 5 rising evenly to 800 at age 10."""
-    age = max(MIN_AGE, min(MAX_AGE, age))
-    return MIN_WORDS + (age - MIN_AGE) * (MAX_WORDS - MIN_WORDS) // (MAX_AGE - MIN_AGE)
+    """The middle of the age's band: 400 (5-6), 525 (7-8), 650 (9-10)."""
+    low, high = word_band(age)
+    return (low + high) // 2
 
 
 # --------------------------------------------------------------------------- #
@@ -77,7 +90,14 @@ class AgeTier:
 _ALWAYS_BANNED = [
     r"kill\w*", r"murder\w*", r"blood\w*", r"guns?", r"shoot\w*", r"kidnap\w*",
     r"oh my god", r"stupid", r"shut up", r"hate[sd]?",
+    # real run (age 5, "Noah's Sparkling Idea"): "We'll put a pillow on your face" - a real
+    # suffocation risk a child could copy; neither the judge nor the double-check caught it
+    r"(?:pillows?|plastic bags?|bags?|blankets?|cushions?) (?:on|over) (?:your|his|her|their|my|its) (?:face|head)",
 ]
+# Real fire, for ages 5-8 (the same story: "The pillow caught the sparks, but... it caught
+# fire!"). Dragon sparks, campfires with a grown-up and birthday candles stay fine.
+_FIRE = [r"caught fire", r"catch(?:es)? fire", r"on fire", r"set (?:\w+ )?(?:on )?fire", r"burst into flames",
+         r"went up in flames"]
 
 TIERS = {
     "little": AgeTier(
@@ -108,7 +128,7 @@ TIERS = {
             r"witch(es)?", r"evil", r"scar(y|ed|ier|iest)", r"terrif\w*", r"scream\w*",
             r"nightmares?", r"strangers?", r"fight\w*", r"punch\w*", r"knives|knife",
             r"swords?", r"weapons?", r"wicked",
-        ],
+        ] + _FIRE,
         vocabulary="Use only very simple, everyday words a 5-year-old says themselves - like an early "
                    "picture book. Mostly one- and two-syllable words. Say big not enormous, happy not "
                    "delighted, shiny not glistening, quiet not tranquil, said not exclaimed. "
@@ -136,7 +156,7 @@ TIERS = {
         banned_patterns=_ALWAYS_BANNED + [
             r"d(ie|ied|ies|ying|eath)", r"dead", r"nightmares?", r"knives|knife",
             r"weapons?", r"terrif\w*",
-        ],
+        ] + _FIRE,
         vocabulary="Use simple, everyday words a 7-year-old can read alone. Mostly short words; "
                    "say big not enormous, glad not delighted, quiet not peaceful. No fancy words.",
         max_hard_words=0.05,

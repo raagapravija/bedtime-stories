@@ -1,8 +1,29 @@
 # 🌙 Bedtime Story Maker
 
-A bedtime story for children aged 5 to 10, written by an **AI agent** on **gpt-3.5-turbo**. A parent picks a **name**, an **age** and a **shelf** in a little night-time library. The **Storyteller Agent** reads story seeds from a hand-written **premise bank** (space and animal stories teach one true thing), **pitches three different stories**, and a **young listener** (gpt-3.5 playing a child of that age) picks one. A **head writer** then writes a beat sheet with the *actual jokes* (set-up and punchline for each try), **three writers** each write the whole story at the same time, and a **side-by-side judge** picks the best. The agent reviews it, **rehearses it aloud** the way a parent will read it, and hands it over: always safe for the age, and always **500–800 words**. The parent watches each step appear on the book's cover while it is written, and can ask for changes ("make it funnier"). A second mode, a bedtime version of **Agents' Room** (Huot et al., ICLR 2025) with planning specialists and section writers, is kept for comparison (`BEDTIME_MODE=room`).
+A bedtime story for children aged 5 to 10, made by **gpt-3.5-turbo** and checked by an **LLM judge**. A parent picks a **name**, an **age** and a **shelf** in a little night-time library. Code picks three hand-written story ideas (space and animal ideas teach one true fact), a **young listener** (gpt-3.5 playing a child of that age) chooses one, **three storytellers** each write the whole story at the same time from a short prompt, a **side-by-side judge** picks the best, and the **judge** critiques it so the storyteller can improve it once - a revision that is kept **only if the judge ranks it higher**. Code checks safety, length for the age and read-aloud rhythm throughout. About 13 model calls, 10-20 seconds. Parents can ask for changes ("make it funnier").
 
-![Architecture](docs/architecture.png)
+**How I got here:** I first built a tool-calling **Storyteller agent** (and a bedtime version of *Agents' Room*, Huot et al., ICLR 2025). Real runs and an A/B test showed that the agent's step-by-step patching was where stories broke, and that a short prompt beat elaborate planning - so the default is now a **workflow** where code decides the order and every model call has one job. The agent designs are still in the repo for comparison (`BEDTIME_MODE=whole` or `room`), and the evidence is in [What went wrong on the way](#what-went-wrong-on-the-way-and-how-the-design-changed).
+
+## Block diagram
+
+![Block diagram: user, input guard, the story workflow (pick ideas, young listener, story library, three storytellers, side-by-side judge, judge and safety double-check, one revision kept only if better, house style), the parent's change, and the earlier agent designs](docs/architecture.png)
+
+**How to read it.** Top to bottom is one run. The orange column is the **workflow**: code runs the numbered steps in
+order. Each step's row shows what it talks to. Every **pink/red box is one gpt-3.5 call with one job** and names its
+prompt in [`bedtime/prompts.py`](bedtime/prompts.py); **green boxes are plain code checks**; **purple boxes are data**.
+Dashed arrows are a call and what comes back. Who talks to whom:
+
+| Step | Talks to | What is sent / comes back |
+|---|---|---|
+| User → input guard | (safety screen, for "My own idea") | name, age, today, shelf - all untrusted; a cleaned, fenced brief (`<story_brief>`) comes back |
+| 1 Pick ideas | Premise bank + memory | 3 fresh hand-written seeds for this kind of story and age |
+| 2 Choose one | **Young listener** (LLM) | the 3 ideas (`<pitches>`) → the child's choice and why |
+| 3 Find the voice | Story library | 1 example story for the age and mood, sent as the writer's own earlier story |
+| 4 Write 3 drafts | **3 storytellers** (LLM, in parallel) | the idea, age rules and story shape → 3 whole stories; code knocks out unsafe, far-too-short or no-bedtime-ending drafts |
+| 5 Pick the best | **Side-by-side judge** (LLM) | every pair of drafts, both orders → the winner (a win counts only if both orders agree) |
+| 6 Judge it | Code checks → **judge** (LLM) → **safety double-check** (LLM) | the story (`<story>`) → safety verdict, yes/no checklist, up to 3 fixes; the score is computed in code |
+| 7 Improve it once | **Storyteller** (LLM) → judge again | the story + the judge's notes → a revision, kept only if it ranks higher |
+| 8 Tidy | House style (code) | speech tags, "said"/"asked", long sentences split for reading aloud, pages |
 
 ---
 
@@ -27,7 +48,7 @@ A bedtime story for children aged 5 to 10, written by an **AI agent** on **gpt-3
    ```
 4. **Run the tests** (no key needed, no cost: a scripted stand-in plays gpt-3.5) - about 30 seconds.
    ```bash
-   pytest -q                          # 193 passed
+   pytest -q                          # 203 passed
    ```
 5. **Open the app** - it opens http://127.0.0.1:8000 in your browser.
    ```bash
@@ -47,7 +68,7 @@ A bedtime story for children aged 5 to 10, written by an **AI agent** on **gpt-3
    python -m evals.run_evals                                       # all 13 cases, vs the original skeleton's prompt
    ```
    The table is written to `evals/results.md` and every story, in full, to `evals/stories/`.
-9. **Try the other mode** (optional): `BEDTIME_MODE=room python app.py` uses the writers' room instead.
+9. **Try the earlier agent designs** (optional): `BEDTIME_MODE=whole python app.py` (tool-calling agent) or `BEDTIME_MODE=room python app.py` (writers' room).
 
 ### With Docker
 
@@ -65,9 +86,22 @@ The page is a library at night. A library card takes the child's name (optional;
 
 ## Models used
 
-**Only `gpt-3.5-turbo`, as the assignment requires - for every model call in the app.** The safety screen, the Storyteller Agent (planning, writing, fixing) and the judge all run on it (`bedtime/config.py: CORE_MODEL`). There are exactly two places that call the OpenAI API, both in `bedtime/llm.py`, and both use `CORE_MODEL`. No image, voice or other model is used anywhere. The page's design and the read-aloud are plain browser features: read-aloud uses the computer's own voices.
+**Only `gpt-3.5-turbo`, as the assignment requires - for every model call in the app.** The safety screen, the young listener, the storytellers, both judges and the earlier agent all run on it (`bedtime/config.py: CORE_MODEL`). There are exactly two places that call the OpenAI API, both in `bedtime/llm.py`, and both use `CORE_MODEL`. No image, voice or other model is used anywhere. The page's design and the read-aloud are plain browser features: read-aloud uses the computer's own voices.
 
-## The Storyteller Agent
+## How it works (the default workflow)
+
+`bedtime/simple.py` runs the steps in the diagram. Every prompt is short and does one job; anything code can check
+(safety words, length, style) is checked by code instead of being repeated to the model.
+
+- **Ideas come from people, choices from a "child".** gpt-3.5 is a good developer of an idea and a poor inventor of one (given only "adventure, age 7" it wrote *a puzzle that fell into other puzzles*). So 98 hand-written seeds hold the ideas - each a hero who wants something, a funny obstacle and a twist - and a gpt-3.5 "young listener" of the child's age picks which one to hear.
+- **Stories you learn from.** Space and animal seeds give the hero a true fact to *live* ("a little flame inside the Sun who only eats hydrogen", "a sea otter who keeps drifting off in her sleep"). Their funny middle is three silly wrong guesses, then the true answer in conversation; a code check confirms the fact is explained.
+- **A short prompt, with the example as the writer's own story.** The library example is sent as the storyteller's *own earlier answer*, which gpt-3.5 imitates far more faithfully than an example pasted into a prompt - including its length, which is why lengths are set by age.
+- **Best of three, then judged.** gpt-3.5 is uneven, so three drafts are written at once and a side-by-side judge picks one (asked in both orders - LLM judges favour whichever story comes first). The main judge answers yes/no questions and code computes the score, so the score can't be talked up.
+- **The judge improves the story - but can't make it worse.** Its notes drive one whole-story revision, and the revision is kept only if it ranks higher (safe → inside the word range → fewer problems → score).
+
+## The earlier design: the Storyteller agent (`BEDTIME_MODE=whole` or `room`)
+
+### The Storyteller Agent
 
 One gpt-3.5 **author** runs the writers' room in **one conversation**: it browses ideas, pitches, directs the specialists, reviews, rehearses and fixes, so it never loses track of what the story is about. Other gpt-3.5 roles do one job each: the **young listener** picks a pitch, four **planning specialists** build the plan, and five **section writers** write the scenes. Code around them **measures, guards and records**. (`bedtime/agent.py`)
 
@@ -88,7 +122,7 @@ One gpt-3.5 **author** runs the writers' room in **one conversation**: it browse
 observe (tool result / report card) → decide → call ONE tool → observe → …
 ```
 
-### Two ways to write: whole-story mode (default) and the writers' room
+### Two agent designs: whole-story mode and the writers' room
 
 After many real runs, the writers' room's stories were safe and the right length, but flat. Reading them as
 a reader, not a checker: **nobody wrote the story** - a dozen calls each wrote a slice, so no joke was set up
@@ -97,7 +131,7 @@ one-line beats → scene) until it went generic; and the plan **described** humo
 sillier") instead of containing it. gpt-3.5 can't invent a good gag from a description, but it delivers a
 written one well.
 
-**Whole-story mode** (`BEDTIME_MODE=whole`, the default) keeps the same agent, seeds, young listener and
+**Whole-story mode** (`BEDTIME_MODE=whole`) keeps the same agent, seeds, young listener and
 harness, and changes how the story gets written:
 
 | Step | What happens |
@@ -141,8 +175,8 @@ modes on every case, judges them head to head, and saves every story to `evals/s
 - **Everything the agent writes is checked before it's accepted.** That covers refusals and chatter ("I'm ready for the task!"), retelling what already happened, falling asleep early, and words that aren't suitable for the age ("tiny green shoots" and "shooting star" are allowed). A rejected text keeps the slot open so the agent can try again.
 - **Memory:** the conversation holds the brief, the example, the plan, every word written and every review. Passage numbers stay the same between edits, so "passage 4" always means the same passage.
 - **House style in code.** After every scene, code turns "exclaimed / declared / replied / encouraged" into "said" (or "asked"), and drops tails like "with determination" and ", her eyes wide with wonder". A mechanical rule is applied by code every time, not hoped for. Scenes close their own moment (no "Next, they…" spoilers), a pasted plan sentence at the start of a scene is cut, and the report card names the passage that holds each remaining problem.
-- **The judge only reads stories of the right length.** While the story is outside 500–800 words, a review runs the code checks only, which is fast; the LLM judge's opinion of a 200-word story was being wasted (one real run made 13 slow reviews). A story the judge hasn't seen is never handed over.
-- **The best draft is chosen sensibly:** safe first, then judged and inside 500–800 words, then the fewest problems, then the score. (A real bug: a 206-word draft with fewer problems beat a 540-word one.)
+- **The judge only reads stories of the right length.** While the story is outside its age's word range, a review runs the code checks only, which is fast; the LLM judge's opinion of a 200-word story was being wasted (one real run made 13 slow reviews). A story the judge hasn't seen is never handed over.
+- **The best draft is chosen sensibly:** safe first, then judged and inside the word range, then the fewest problems, then the score. (A real bug: a 206-word draft with fewer problems beat a 540-word one.)
 - **Budgets:** 22 tool calls, 32 turns and 150 seconds. Identical repeated actions are refused. A turn without a tool call gets a nudge.
 - **Fallback (autopilot):** if the agent breaks, gets stuck or runs out of budget, the same tools run with fixed decisions: pitches → the listener's choice → spine → write the remaining events → review → add or shorten passages until the length fits → rehearse and split breath-breaking sentences. The parent always gets a reviewed, rehearsed story, and `agent_stats` records honestly that the autopilot finished it.
 - **The parent sees the agent work.** Each step is sent to the page as a short line on the book's cover (`✦` events), from the pitches to "Done - binding the book".
@@ -154,7 +188,7 @@ modes on every case, judges them head to head, and saves every story to `evals/s
 - **The parent's idea is the heart:** for "My own idea", the plan must state its heart in one sentence, and it has to be about what the parent asked for.
 - **Observable:** every agent turn, tool call and model call is saved to `output/debug/*.json`, with an `agent_log` of its decisions. See [`docs/sample_agent_run.md`](docs/sample_agent_run.md).
 
-### What happens before the agent (always, in code)
+### What happens before any story is written (always, in code)
 
 | Step | What it does |
 |---|---|
@@ -201,6 +235,11 @@ The app was built by testing against real gpt-3.5 output and reading the step-by
 | Space stories used science as decoration ("the crew chase floating peas"); the parent wanted stories a child **learns** from, like "someone who only needs hydrogen, living on the Sun" | Seeds said *where* the story was, not *what the child finds out*; a leftover random "spark" ("a seed that grows in a space garden") also competed with the chosen seed | 16 space and 8 animal **wonder seeds** with a hero who is the science and a fact to learn; planners build the tries as wrong guesses; writers get "a question, a guess, an answer"; the code checks the fact is explained. The random spark is gone. |
 | **Too slow** (~95 s): the draft scored 8.5/10 at 50 s, then 45 s of polishing took it to 6.2 and the autopilot took over | Nothing stopped polishing once a draft passed; long sentences were fixed by rewrite → review → read-aloud loops (a model call each) | After a passing draft, the agent gets **2 polish edits**, then the best draft goes out (no autopilot). Long sentences are split **in code** at a natural join. Time budget 150 s → 90 s. |
 | **"The timing of humour is not making any sense"** ("The Day Everything Said Moo") | Each whole draft came out at 264-316 words, so the agent padded with `add_passage`: pancakes the next morning, a moo-sical concert and a mural - all *after* the problem was solved. The beat sheet's "jokes" were descriptions ("a wacky ballet"), the tries had no logic, and the twist (a second sneeze fixes everything) made the hero's idea pointless | Beat sheet tries are **plan → set-up → punchline → so next**, with one funny rule, the rule of three, a solution that uses something **planted**, a twist that never undoes it, and the running joke three times; code rejects punchlines that *describe* fun. Writers get comic-timing rules (punchline last in its paragraph, a beat before it, never explained, nothing after the solution). Drafts are written in **two halves** so they reach full length, and a short story is lengthened with `expand_passage` (more set-up and talk, same events) - whole-story mode has no `add_passage`. |
+| **The agent was where stories broke** (first real API runs of whole-story mode) | "The Never-Ending Cake" (3.1/10): the agent's page-by-page patches deleted a try (the cake is "still growing inside the freezer" with no freezer) and duplicated lines; a 7.3/10 space story was patched under the word range until the autopilot took over. In every run the best text was the first full draft | The default became a **workflow**: code fixes the order, and the judge improves the story through one whole-story revision that is kept only if it ranks higher. 60 s → 10-20 s, ~30 → ~13 model calls. |
+| **A/B test on one seed** (age 7, three prompts, two stories each) | A labelled beat sheet leaked its labels into the prose ("It was a funny rule", "A twist she never expected!"); a plain outline made it preachy ("Maya realized that mysteries…"); a **short prompt** with the idea and the example as the writer's own story gave the best story by far - a real rule of three and natural talk | The short prompt is the default writer prompt. |
+| Stories always came out short, then got padded | gpt-3.5 copies the **length** of its example story as well as its voice, and the examples are 374-539 words, while the app demanded 500-800 | Lengths by age, calibrated on real drafts: 300-500 (5-6), 400-650 (7-8), 500-800 (9-10). |
+| Speech tags on their own line (`"Did you grow?"` / `Leo asked.`) | The sentence splitter treated the capital letter after `?"` as a new sentence | A tag after a closing quote stays with its quote. |
+| Age 5: "We'll put a pillow on your face… it caught fire!" passed the judge | The age rules said "no fire", but nothing in code checked it, and the judge let a dragon story through | Code bans covering a face (all ages) and real fire (ages 5-8); dragon sparks and birthday candles stay fine. |
 | Stories were competent but flat | The "spark" and hero name were picked by dice in code; the agent never made a creative choice | The writers' room (three pitches, a young listener chooses), the story spine, the read-aloud rehearsal, sequels and the child's day. |
 | A 197-word story scored 10/10 | The gpt-3.5 judge says "yes" to almost everything | The score shown subtracts 2 per failed code check and is capped at 5 when the length is wrong. |
 
@@ -211,7 +250,7 @@ Real gpt-3.5 failure stories are kept in `tests/samples/`, and each failure abov
 ## Checks and judging
 
 - **Code checks** (`bedtime/checks.py`):
-  - **Length:** 500–800 words, and within 20% of the age's target.
+  - **Length by age:** 300–500 words (ages 5–6), 400–650 (7–8), 500–800 (9–10) - a 3-5 minute read.
   - **Safety:** banned words for the age.
   - **Readability:** hard words (3+ syllables, or flowery words like "tranquil") at most 3% / 5% / 8% by age; average sentence length; how much talking.
   - **Artificial writing:** gpt-3.5 habits (", her eyes shining with curiosity", named feelings, "exclaimed"), passive voice, and overused words.
@@ -224,9 +263,9 @@ Real gpt-3.5 failure stories are kept in `tests/samples/`, and each failure abov
 ### Age tiers
 | Ages | Words | Rules |
 |---|---|---|
-| 5–6 | 500–600 (age 5), 500–672 (age 6) | Very simple words, sentences under 9 words on average, at least 25% talking. No villains, danger, getting lost, death, scary monsters or unkindness. Nothing a child might copy. |
-| 7–8 | 500–744 (age 7), 544–800 (age 8) | At least 20% talking. Mild problems are fine. "Scary" things turn out friendly. Villains are only silly. No death. |
-| 9–10 | 592–800 (age 9), 640–800 (age 10) | Light suspense and mysteries, resolved warmly. No violence. No fear left at the end. |
+| 5–6 | 300–500 | Very simple words, sentences under 9 words on average, at least 25% talking. No villains, danger, getting lost, death, scary monsters or unkindness. Nothing a child might copy. |
+| 7–8 | 400–650 | At least 20% talking. Mild problems are fine. "Scary" things turn out friendly. Villains are only silly. No death. |
+| 9–10 | 500–800 | Light suspense and mysteries, resolved warmly. No violence. No fear left at the end. |
 
 ### Prompt-injection defence
 - **Sandwich prompts:** every system prompt carries the same security rules, untrusted text sits inside tags, and every prompt that contains untrusted text ends with a reminder of the model's one job.
@@ -238,15 +277,17 @@ Real gpt-3.5 failure stories are kept in `tests/samples/`, and each failure abov
 ## Tests and evaluation
 
 ```bash
-pytest -q                                  # 193 offline tests; scripted fakes stand in for gpt-3.5
+pytest -q                                  # 203 offline tests; scripted fakes stand in for gpt-3.5
 python -m evals.run_evals                  # baseline (the skeleton's raw prompt) vs the agent, scored
                                            # and side by side (plot, creativity, development, language, bedtime)
 python -m evals.run_evals --no-baseline    # the agent only (cheaper)
-python -m evals.run_evals --mode both      # whole-story mode vs the writers' room
+python -m evals.run_evals --mode both      # agent (whole-story) mode vs the writers' room
+python -m evals.run_evals --mode simple    # the default workflow
 ```
 
 - `tests/test_agent.py` covers the agent loop, every tool, every refusal and guardrail, budgets, stuck detection, the autopilot fallback, parent changes, tracing, and the real failures listed above. The agent is played by a scripted author that reacts to what the harness says, and bad behaviour is scripted on purpose.
 - `tests/test_writers_room.py` covers the premise bank (every seed safe for its ages, concrete, not a tired idea), the planning specialists' order and checks, the section writers' briefs and examples, space facts reaching the writers, seeds not repeating, the pitches and the young listener (including a broken or injected listener reply), the story spine, the rehearsal, sequels and memory, the child's day, the steps shown on the page, and regressions replayed from real traces.
+- `tests/test_simple.py` covers the default workflow: the fixed order with no agent turns, the short writer prompt (no beat-sheet labels), the discovery-story shape, a revision kept only if it ranks higher, in-range drafts winning, stray-tag and title clean-up, speech tags kept with quotes, and the real hazards caught in code.
 - `tests/test_whole.py` covers whole-story mode: the beat sheet's checks (written-out punchlines, the child as hero, the seed's twist and fact, age-safe words), three drafts written at the same time in different ways and in two halves, knocking out drafts that don't end in bed, the side-by-side choice, lengthening scenes instead of adding events, and the autopilot.
 - `tests/test_library.py` checks that every example follows the rules it teaches, every age and mood is covered, and copying is caught.
 - `evals/run_evals.py` runs 13 cases (all ages, unsafe requests, prompt injection, a trademarked hero, a sensitive day, and a child coming back for a second story). It reports score, safety, words in range, tool calls, **how often the agent finishes by itself** (no autopilot), which pitch the listener picked, sequels chosen, read-aloud stumbles left, and time.
@@ -258,7 +299,8 @@ app.py                  web server (standard library only; 127.0.0.1, or --host 
 web/index.html          the page: name, age, genre, story, changes
 main.py                 terminal version of the same flow
 bedtime/agent.py        the Storyteller Agent: tools, harness, guardrails, autopilot (writers'-room mode)
-bedtime/whole.py        whole-story mode (default): head writer's beat sheet, 3 parallel drafts, judge picks
+bedtime/simple.py       the default workflow: listener → 3 drafts → side-by-side judge → judge → one revision
+bedtime/whole.py        agent mode "whole": head writer's beat sheet, 3 parallel drafts, judge picks
 bedtime/library.py      12 example stories by age band and mood (tone source)
 bedtime/ideas.py        the premise bank (98 seeds; space and animal seeds teach a true fact), comic scenes
 bedtime/memory.py       the agent's memory: recent stories, and each child's own stories (for sequels)

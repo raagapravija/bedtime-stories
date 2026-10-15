@@ -30,9 +30,15 @@ def good_llm(**over):
 
 
 # ------------------------------------------------------------------ config ---
-@pytest.mark.parametrize("age,words", [(5, 500), (6, 560), (8, 680), (10, 800)])
-def test_word_target_scales_500_to_800(age, words):
-    assert target_words(age) == words
+@pytest.mark.parametrize("age,band", [(5, (300, 500)), (6, (300, 500)), (7, (400, 650)), (8, (400, 650)),
+                                      (9, (500, 800)), (10, (500, 800))])
+def test_story_length_follows_the_age(age, band):
+    # gpt-3.5 copies its example's length (374-539 words), so young children get
+    # picture-book lengths and older ones longer stories - a 3-5 minute read.
+    from bedtime.checks import word_range
+    assert target_words(age) == sum(band) // 2
+    b = Brief(listener=listener(age=age), genre=GENRES["friendship"], story_request="x")
+    assert word_range(b) == band
 
 
 def test_age_tiers():
@@ -66,7 +72,7 @@ def test_code_checks_catch_missing_name_length_and_moral():
     assert "stated moral" in joined
     assert safety == []
 
-    ok_safety, ok_issues = code_checks(brief, parse_story(make_story()))
+    ok_safety, ok_issues = code_checks(brief, parse_story(make_story(words_per_page=100)))   # 400 words, age 6
     assert ok_safety == [] and ok_issues == []
 
 
@@ -411,7 +417,7 @@ def test_every_story_saves_a_step_by_step_trace(tmp_path, monkeypatch):
     import json
     data = json.loads(path.read_text())
     assert data["calls"][0]["step"].startswith("STORYTELLER AGENT")
-    assert data["final"]["target_words"] == 560 and data["final"]["verdicts"]
+    assert data["final"]["target_words"] == 400 and data["final"]["verdicts"]
     assert any("plan accepted" in line for line in data["final"]["agent_log"])
     assert any("Storyteller:" in e for e in data["events"])
 

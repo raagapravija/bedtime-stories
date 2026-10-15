@@ -118,6 +118,14 @@ OPEN_Q, CLOSE_Q = '"\u201c', '"\u201d'
 ENDS = ".!?\u2026"
 
 
+# '"I'm making a cake!" Maya said, ...' is ONE sentence: a capital letter after a
+# closing quote is not a new sentence when it starts the speech tag. Real run ("The
+# Never-Ending Cake"): every tag was split off onto its own line ("Leo asked.").
+SPEECH_TAG_START = re.compile(
+    r"(?:[A-Z][a-z]+(?: [A-Z][a-z]+)?|He|She|They|We|I|It|Mum|Dad|Grandma|Grandpa)\s+"
+    r"(?:said|asked|called|shouted|whispered|replied|cried|added|laughed|giggled|sang|yelled)\b")
+
+
 def split_sentences(text: str) -> list[str]:
     """Split into sentences without ever cutting inside a quote.
     '"Can I go?" asked Aria.' stays one sentence; so does '"Hi," said Mum.'"""
@@ -138,8 +146,10 @@ def split_sentences(text: str) -> list[str]:
             k = j
             while k < n and text[k] == " ":
                 k += 1
-            # a new sentence starts with a capital letter or an opening quote
-            if k >= n or text[k].isupper() or text[k] in OPEN_Q:
+            # a new sentence starts with a capital letter or an opening quote -
+            # unless it is the speech tag of the quote that just closed
+            tag = text[j - 1] in CLOSE_Q and SPEECH_TAG_START.match(text, k)
+            if not tag and (k >= n or text[k].isupper() or text[k] in OPEN_Q):
                 if ch in CLOSE_Q or j > i + 1 or ch in ENDS:
                     sentences.append(text[start:j].strip())
                     start = k
@@ -185,6 +195,8 @@ def reflow(page: str) -> str:
     and a break after '...' so the surprise gets its own paragraph.
     The writer's own paragraph breaks (e.g. a new speaker) are always kept."""
     paragraphs = []
+    # a speech tag the writer put on its own line goes back on its quote's line
+    page = re.sub(r'(["\u201d])[ \t]*\n+[ \t]*(?=' + SPEECH_TAG_START.pattern + ")", r"\1 ", page)
     for block in re.split(r"\n+", page):
         current = []
         for sentence in split_sentences(block.strip()):

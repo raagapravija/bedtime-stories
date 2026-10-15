@@ -6,7 +6,7 @@ For each test case it runs
                review, fix, finish - with code guardrails and an autopilot fallback)
 and scores both with the same checks and judge, then writes a markdown report,
 including agent metrics: steps taken, who finished (agent or autopilot), and
-whether the story landed in the 500-800 word range.
+whether the story landed in its age's word range.
 
     python -m evals.run_evals                  # all cases
     python -m evals.run_evals --only 3         # first 3 cases (cheaper)
@@ -29,6 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from bedtime.checks import word_range  # noqa: E402
 from bedtime.config import GENRES, QUALITY_PASS  # noqa: E402
 from bedtime.judge import compare, judge  # noqa: E402
 from bedtime.prompts import PAIRWISE_DIMENSIONS  # noqa: E402
@@ -100,7 +101,7 @@ def run_case(case, baseline: bool = True, mode: str = "") -> dict:
         row.update(
             score=v.quality_score, safe=v.safe, passed=v.passed(QUALITY_PASS),
             drafts=len(result.history), words=result.story.word_count,
-            in_range=500 <= result.story.word_count <= 800,
+            in_range=word_range(result.brief)[0] <= result.story.word_count <= word_range(result.brief)[1],
             steps=stats.get("tool_calls", 0), by_agent=bool(stats.get("finished_by_agent")),
             finished_by="agent" if stats.get("finished_by_agent") else "autopilot",
             picked=f'{pitch.get("title", "-")} ({pitch.get("shape", "-")})',
@@ -175,7 +176,7 @@ def report(rows: list[dict]) -> str:
               f"- Average quality score: baseline **{avg('base_score')}**, system **{avg('score')}** (out of 10)",
               f"- Judged safe: baseline **{pct('base_safe')}**, system **{pct('safe')}**",
               f"- System stories passing every check: **{pct('passed')}**",
-              f"- Stories inside 500-800 words: **{pct('in_range')}**",
+              f"- Stories inside their age's word range: **{pct('in_range')}**",
               f"- Finished by the agent itself (no autopilot): **{pct('by_agent')}**",
               f"- Sequels the young listener chose: {sum(bool(r.get('sequel')) for r in rows)}",
               f"- Average tool calls: {avg('steps')}; reviews per story: {avg('drafts')}; "

@@ -154,6 +154,7 @@ class WholeStoryteller(Storyteller):
     """The Storyteller in whole-story mode (mode "whole")."""
     SYSTEM = prompts.AGENT_SYSTEM_WHOLE
     TOOL_SCHEMAS = TOOLS_WHOLE
+    MODE = "whole"
 
     def __init__(self, *a, **kw):
         super().__init__(*a, **kw)

@@ -33,7 +33,7 @@ finish(reason)                 accepted only if the story passes and was rehears
 
 The harness around the agent (guardrails, budgets, fallback, tracing):
 - Order is enforced by refusals, not a script: no writing before the plan
-  passes; no finishing a story that is unsafe, outside 500-800 words, copies
+  passes; no finishing a story that is unsafe, outside its age's word range, copies
   the example, repeats itself, has unwritten events, changed since the last
   review, or is failing while steps remain.
 - The agent directs, a focused call writes. Real trace: writing inside the
@@ -190,6 +190,8 @@ def clean_story_text(text: str) -> str:
     for line in text.replace("\r", "").split("\n"):
         if re.match(r"^\s*TITLE:", line, re.IGNORECASE) or _CHATTER.match(line):
             continue
+        # real run: a story ended with the prompt's closing "</story>" tag
+        line = re.sub(r"</?(?:story|story_brief|editor_note|example_story)>", "", line)
         lines.append(_NUMBERED.sub("", _LABEL.sub("", line)))
     return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
 
@@ -232,6 +234,7 @@ class Storyteller:
     """The writers'-room Storyteller (mode "room")."""
     SYSTEM = prompts.AGENT_SYSTEM
     TOOL_SCHEMAS = TOOLS
+    MODE = "room"
     def __init__(self, llm: LLM, brief: Brief, *, on_event: Events = None,
                  previous: Optional[StoryResult] = None, goal: str = "",
                  memory: Optional[StoryMemory] = None):
@@ -738,7 +741,7 @@ class Storyteller:
         return v.safe and v.judged and low <= draft.story.word_count <= high and v.passed(QUALITY_PASS)
 
     def _rank(self, draft: Draft) -> tuple:
-        """Higher is better: safe, then judged and inside 500-800 words, then fewer
+        """Higher is better: safe, then judged and inside the word range, then fewer
         issues, then the score. Real bug: a 206-word draft with fewer issues beat a
         540-word one, and the parent got the 206-word story."""
         low, high = word_range(self.brief)
@@ -1257,7 +1260,7 @@ def plan_problems(brief: Brief, title: str, characters: list[str], events: list[
         problems.append("Name the characters.")
     if not n_lo <= len(events) <= n_hi:
         problems.append(f"Use {n_lo - 5}-{n_hi - 5} \"because_of_that\" beats (you have {len(events) - 5}) - "
-                        "the story needs about one beat for every 60-80 words of the 500-800 word story.")
+                        "the story needs about one beat for every 60-80 words of the story.")
     wordy = [i for i, e in enumerate(events, 1) if len(e.split()) > 22]
     if wordy:
         problems.append(f"Beats {', '.join(map(str, wordy[:4]))} are long: each beat is ONE short, plain "
@@ -1407,10 +1410,12 @@ def run_storyteller(llm: LLM, brief: Brief, *, on_event: Events = None,
                     previous: Optional[StoryResult] = None, goal: str = "",
                     memory: Optional[StoryMemory] = None, mode: str = "") -> StoryResult:
     from .config import STORY_MODE
+    from .simple import SimpleStoryteller
     from .whole import WholeStoryteller
     mode = mode or STORY_MODE
-    # a parent's change edits the story they have, page by page, in either mode
-    cls = WholeStoryteller if mode == "whole" and previous is None else Storyteller
+    # a parent's change edits the story they have, page by page, in every mode
+    cls = Storyteller if previous is not None else {"whole": WholeStoryteller, "simple": SimpleStoryteller}.get(
+        mode, Storyteller)
     teller = cls(llm, brief, on_event=on_event, previous=previous, goal=goal, memory=memory)
     try:
         run = teller.run()
@@ -1435,6 +1440,6 @@ def run_storyteller(llm: LLM, brief: Brief, *, on_event: Events = None,
              "listener_why": (run.plan.get("pitch") or {}).get("why", ""),
              "rehearsal_issues": len(teller.rehearsal),
              "stopped_polishing": teller.stopped_polishing,
-             "mode": "whole" if getattr(teller, "beats", None) is not None else "room"}
+             "mode": teller.MODE}
     return StoryResult(brief=brief, plan=run.plan, best=run.best, history=history,
                        agent_log=log, passages=run.passages, example=run.example, agent_stats=stats)

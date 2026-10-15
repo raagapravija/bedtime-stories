@@ -30,6 +30,12 @@ def listener(**kw):
     return Listener(**{"age": 6, "name": "Mia", "today": "", **kw})
 
 
+def in_range(result) -> bool:
+    from bedtime.checks import word_range
+    low, high = word_range(result.brief)
+    return low <= result.story.word_count <= high
+
+
 def tool_results(llm):
     return [m["content"] for m in llm.agent_messages if m.get("role") == "tool"]
 
@@ -59,7 +65,7 @@ def test_agent_plans_writes_reviews_and_finishes_by_itself():
     result = create_story(listener(), Request("calming", ""), llm=llm, on_event=events.append)
     assert tools_called(llm) == ["browse_ideas", "pitch_ideas", "search_library", "plan_story"] + \
         ["write_part"] * 3 + ["review_story", "read_aloud", "finish"]
-    assert 500 <= result.story.word_count <= 800
+    assert in_range(result)
     assert result.best.verdict.passed(QUALITY_PASS)
     assert result.example and result.passages and result.plan["events"]
     assert [line.split(":")[0].split(" ")[0] for line in result.agent_log] == \
@@ -136,9 +142,9 @@ def test_planning_needs_the_seeds_the_listeners_choice_and_the_example_first():
 
 
 @pytest.mark.parametrize("age", [5, 6, 7, 8, 9, 10])
-def test_every_age_lands_in_500_to_800_words(age):
+def test_every_age_lands_in_its_word_range(age):
     result = create_story(listener(age=age), Request("calming", ""), llm=good_llm())
-    assert 500 <= result.story.word_count <= 800
+    assert in_range(result)
     assert len(result.story.pages) == result.brief.pages
 
 
@@ -288,7 +294,7 @@ def test_a_stuck_agent_hands_over_to_the_autopilot_early():
     result = create_story(listener(), Request("calming", ""), llm=llm)
     assert len([r for r, _, _ in llm.calls if r == "agent"]) == STUCK_LIMIT
     assert any("autopilot" in line for line in result.agent_log)
-    assert 500 <= result.story.word_count <= 800 and result.best.verdict.safe
+    assert in_range(result) and result.best.verdict.safe
 
 
 def test_a_crashing_agent_is_replaced_by_the_autopilot():
@@ -301,7 +307,7 @@ def test_a_crashing_agent_is_replaced_by_the_autopilot():
         return story_text(int(m.group(1)) if m else 100)
     result = create_story(listener(), Request("calming", ""), llm=good_llm(agent=broken, author=author))
     assert any("agent failed (ValueError" in line for line in result.agent_log)
-    assert result.story.word_count >= 500
+    assert in_range(result)
 
 
 def test_when_nothing_can_be_written_the_error_is_clear():
@@ -335,7 +341,7 @@ def test_parent_change_goes_to_the_agent_fenced_and_comes_back_changed():
     assert "closest gentle, cozy version" in task
     assert new.brief.word_target == int(old_target * 1.25)
     assert note == "I'll keep it gentle - it's bedtime."                # "scary" is banned at age 6
-    assert new.story.text != old_text and 500 <= new.story.word_count <= 800
+    assert new.story.text != old_text and in_range(new)
     assert any("rewrote passage 1" in line for line in new.agent_log)
     assert len(new.history) > len(result.history)
 

@@ -15,7 +15,7 @@ from bedtime.pipeline import create_story
 from fakes import (FakeLLM, agent_turn, brief_json, good_agent, judge_json, listener_json, pitch_turn, pitches_for,
                    story_text)
 
-from test_agent import good_llm, listener, then, tool_results, tools_called
+from test_agent import in_range, good_llm, listener, then, tool_results, tools_called
 
 
 def brief(**kw):
@@ -265,7 +265,7 @@ def test_a_clumsy_agent_like_the_real_traces_still_finishes_by_itself():
     ))
     result = create_story(listener(), Request("calming", ""), llm=llm)
     assert result.agent_stats["finished_by_agent"] is True
-    assert 500 <= result.story.word_count <= 800
+    assert in_range(result)
 
 
 
