@@ -1,88 +1,40 @@
-// Bedtime Story Maker - block diagram of the default ("simple") mode.
-// Render: dot -Tpng -Gdpi=110 docs/architecture.dot -o docs/architecture.png
+// Bedtime Story Maker - block diagram of the default workflow (compact).
+// Render: dot -Tpng -Gdpi=130 docs/architecture.dot -o docs/architecture.png
 //         dot -Tsvg docs/architecture.dot -o docs/architecture.svg
-// Top to bottom is one run. Code decides the order (a workflow, not an agent loop);
-// each pink/red box is one gpt-3.5 call with one job and names its prompt in
-// bedtime/prompts.py. Green = plain code checks, purple = data.
+// Details (prompt names, what each call sends) are in the README table under the diagram.
+// Pink = gpt-3.5 call, green = code, purple = data, grey = user / output.
 digraph G {
-  graph [rankdir=TB, fontname="Helvetica", fontsize=13, nodesep=0.35, ranksep=0.34, pad=0.3, bgcolor="white",
-         compound=true, newrank=true];
-  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12, penwidth=0.9, margin="0.16,0.07"];
-  edge  [fontname="Helvetica", fontsize=10, color="#5F5E5A", arrowsize=0.7];
+  graph [rankdir=TB, fontname="Helvetica", fontsize=12, nodesep=0.25, ranksep=0.28, pad=0.2, bgcolor="white", newrank=true];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, penwidth=0.8, margin="0.12,0.05"];
+  edge  [fontname="Helvetica", fontsize=9, color="#5F5E5A", arrowsize=0.6];
 
-  user [label="USER (parent): web page or terminal\nname · age 5-10 · something from today · a shelf (11 kinds of story, Surprise me, My own idea)",
-        fillcolor="#F1EFE8", color="#5F5E5A", fontsize=13];
-  guard  [label="Input guard (code)\nclean text · real names only · injection phrases", fillcolor="#E1F5EE", color="#0F6E56"];
-  screen [label="Safety screen  (LLM, only for \"My own idea\")\nprompt: CLASSIFIER_SYSTEM\nsoften or block · original characters · pick the kind", fillcolor="#FCEBEB", color="#A32D2D"];
+  user   [label="Parent: name · age · kind of story", fillcolor="#F1EFE8", color="#5F5E5A"];
+  guard  [label="Input guard + safety screen", fillcolor="#E1F5EE", color="#0F6E56"];
 
-  subgraph cluster_flow {
-    label="STORY WORKFLOW  -  code decides the order; every model call has one job   (bedtime/simple.py)";
-    fontcolor="#633806"; style="rounded"; color="#BA7517"; penwidth=1.8;
-    s1 [label="1  Pick ideas (code)", fillcolor="#FAEEDA", color="#854F0B"];
-    s2 [label="2  Choose one", fillcolor="#FAEEDA", color="#854F0B"];
-    s3 [label="3  Find the voice (code)", fillcolor="#FAEEDA", color="#854F0B"];
-    s4 [label="4  Write 3 drafts\n(at the same time)", fillcolor="#FAEEDA", color="#854F0B"];
-    s5 [label="5  Pick the best", fillcolor="#FAEEDA", color="#854F0B"];
-    s6 [label="6  Judge it", fillcolor="#FAEEDA", color="#854F0B"];
-    s7 [label="7  Improve it once", fillcolor="#FAEEDA", color="#854F0B"];
-    s8 [label="8  Tidy for reading aloud (code)", fillcolor="#FAEEDA", color="#854F0B"];
-    s1 -> s2 -> s3 -> s4 -> s5 -> s6 -> s7 -> s8 [color="#BA7517", penwidth=1.4];
-  }
+  ideas  [label="Premise bank\n3 story ideas", fillcolor="#EEEDFE", color="#534AB7"];
+  listen [label="Young listener\npicks 1", fillcolor="#FBEAF0", color="#993556"];
+  lib    [label="Story library\n1 example (voice)", fillcolor="#EEEDFE", color="#534AB7"];
+  write  [label="3 Storytellers\nwrite drafts in parallel", fillcolor="#FBEAF0", color="#993556"];
+  pick   [label="Side-by-side judge\npicks the best draft", fillcolor="#FBEAF0", color="#993556"];
+  judge  [label="Judge + code checks\nsafety · score · fixes", fillcolor="#FCEBEB", color="#A32D2D"];
+  revise [label="Storyteller revises once\n(kept only if better)", fillcolor="#FBEAF0", color="#993556"];
+  tidy   [label="House style (code)\nread-aloud fixes", fillcolor="#E1F5EE", color="#0F6E56"];
+  story  [label="Story on the page", fillcolor="#F1EFE8", color="#5F5E5A"];
+  change [label="\"Make it funnier\"\nedited, re-judged", fillcolor="#F1EFE8", color="#5F5E5A"];
 
-  ideas    [label="Premise bank (data)\n98 hand-written seeds: a want · a funny obstacle · a twist\nspace & animal seeds: a hero who LIVES a true fact", fillcolor="#EEEDFE", color="#534AB7"];
-  memory   [label="Memory (JSON)\nseeds used recently · names", fillcolor="#EEEDFE", color="#534AB7"];
-  listener [label="YOUNG LISTENER  (LLM)\nprompt: LISTENER_SYSTEM + listener_prompt\na child of this age hears 3 ideas, picks one + says why", fillcolor="#FBEAF0", color="#993556"];
-  library  [label="Story library (data)\n12 example stories · 3 age bands × 4 moods\nsent as the writer's \"own earlier story\": its voice AND its length", fillcolor="#EEEDFE", color="#534AB7"];
-  writers  [label="3 STORYTELLERS  (LLM ×3, in parallel)\nprompt: STORY_SYSTEM + story_prompt  (short on purpose)\nthe idea + age rules + the story's shape:\n3 ideas that go wrong, the hero's own idea works  -  or, if it teaches a fact,\n3 silly wrong guesses, then the true answer  ·  ends asleep", fillcolor="#FBEAF0", color="#993556"];
-  knock    [label="Knock-out checks (code)\nunsafe words · far too short · no bedtime ending\ndrafts inside the age's word range go first", fillcolor="#E1F5EE", color="#0F6E56"];
-  pairwise [label="SIDE-BY-SIDE JUDGE  (LLM, every pair × both orders, in parallel)\nprompt: PAIRWISE_SYSTEM + pairwise_prompt\nplot · creativity · development · language · bedtime fit\na win counts only if both orders agree", fillcolor="#FBEAF0", color="#993556"];
-  checks   [label="Code checks\nword range for the age (300-500 / 400-650 / 500-800)\nage words & real hazards · repeats · copying the example\nstock phrases · hard words · talking · true fact explained", fillcolor="#E1F5EE", color="#0F6E56"];
-  judge    [label="JUDGE  (LLM)\nprompt: JUDGE_SYSTEM + judge_prompt\nsafety veto · yes/no checklist · up to 3 fixes\nscore computed in code (not by the model)", fillcolor="#FCEBEB", color="#A32D2D"];
-  double   [label="Safety double-check  (LLM, per flag)\nprompt: SAFETY_CHECK_SYSTEM\nkeeps only real problems · if unsure, keeps the flag", fillcolor="#FCEBEB", color="#A32D2D"];
-  reviser  [label="STORYTELLER revises  (LLM)\nprompt: STORY_SYSTEM + revise_story_prompt\nthe judge's notes, whole story at once", fillcolor="#FBEAF0", color="#993556"];
-  keep     [label="Re-judged; the revision is KEPT ONLY IF IT RANKS HIGHER\n(safe → inside the word range → fewer problems → score)", fillcolor="#E1F5EE", color="#0F6E56"];
-  tidy     [label="House style (code)\nspeech tags with their quotes · \"said\"/\"asked\" · no named-feeling tails\nsentences too long for one breath are split · pages", fillcolor="#E1F5EE", color="#0F6E56"];
+  user -> guard -> ideas;
+  ideas -> listen [label=" 3 ideas"];
+  listen -> lib [label=" 1 idea"];
+  lib -> write;
+  write -> pick [label=" 3 drafts"];
+  pick -> judge [label=" winner"];
+  judge -> revise [label=" notes"];
+  revise -> judge [label=" re-judge", style=dashed];
+  judge -> tidy [label=" the better version"];
+  tidy -> story;
+  story -> change [style=dashed, label=" parent asks"];
+  change -> judge [style=dashed, constraint=false];
 
-  out [label="STORY on the page: title page + pages · read aloud with the computer's own voice\nthe steps appear on the book's cover while it is written   (about 10-20 seconds, ~13 model calls)",
-       fillcolor="#F1EFE8", color="#5F5E5A", fontsize=13];
-  change [label="\"Make it funnier\" (a parent's change)\nchecked for injection · fenced as <parent_change>\nthe Storyteller agent edits the story page by page,\nre-judged before it is shown", fillcolor="#F1EFE8", color="#5F5E5A"];
-  trace [label="Tracer (code) → output/debug/*.json\nevery prompt, reply and time", fillcolor="#F1EFE8", color="#5F5E5A"];
-
-  subgraph cluster_alt {
-    label="Also in the repo - the earlier agent designs (BEDTIME_MODE=whole | room)"; fontcolor="#5F5E5A";
-    style="rounded,dashed"; color="#8A8A85";
-    alt [label="A tool-calling STORYTELLER AGENT (gpt-3.5) chooses its own next step:\nbrowse_ideas → pitch_ideas → search_library → plan_beats / plan_story →\nwrite_drafts / write_part → review_story → rewrite_passage → read_aloud → finish\nwith code guardrails and an autopilot fallback.\nReplaced as the default after real runs: its page-by-page patches broke stories,\nand a labelled beat sheet leaked into the prose.", fillcolor="#F7F7F5", color="#8A8A85", fontsize=11];
-  }
-
-  { rank=same; guard; screen; }
-  { rank=same; s1; ideas; memory; }
-  { rank=same; s2; listener; }
-  { rank=same; s3; library; }
-  { rank=same; s4; writers; knock; }
-  { rank=same; s5; pairwise; }
-  { rank=same; s6; checks; judge; double; }
-  { rank=same; s7; reviser; keep; }
-  { rank=same; s8; tidy; }
-
-  user -> guard;
-  guard -> screen [dir=both, label=" own idea →\n safe brief"];
-  guard -> s1 [label=" the brief (fenced, untrusted)", lhead=cluster_flow];
-
-  s1 -> ideas [dir=both, style=dashed, label=" 3 fresh seeds"];
-  ideas -> memory [dir=both, style=dashed];
-  s2 -> listener [dir=both, style=dashed, label=" 3 ideas → choice"];
-  s3 -> library [dir=both, style=dashed, label=" 1 example"];
-  s4 -> writers [style=dashed, label=" idea + example"];
-  writers -> knock [label=" 3 drafts"];
-  s5 -> pairwise [dir=both, style=dashed, label=" pairs → winner"];
-  s6 -> checks [style=dashed, label=" story"];
-  checks -> judge;
-  judge -> double [label=" each safety flag"];
-  s7 -> reviser [style=dashed, label=" story + the judge's notes"];
-  reviser -> keep;
-  s8 -> tidy [style=dashed];
-  s8 -> out [color="#BA7517", penwidth=1.4];
-  out -> change [style=dashed, label=" parent asks"];
-  out -> alt [style=invis];
-  out -> trace [style=invis];
+  { rank=same; judge; revise; }
+  { rank=same; story; change; }
 }
